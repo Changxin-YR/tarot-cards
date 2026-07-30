@@ -10,9 +10,10 @@ import {
 } from '../models/TarotModels';
 import { DrawService } from '../services/DrawService';
 import { InterpretationService } from '../services/InterpretationService';
-import { LocalAppStore, StoredAppData } from '../services/LocalAppStore';
-import { StoredCardNote } from '../services/LocalDataCodec';
+import { LocalAppStore, StoredAppData } from '../repositories/LocalAppStore';
+import { StoredCardNote } from '../repositories/LocalDataCodec';
 import { QuestionClassifier } from '../services/QuestionClassifier';
+import { XiaoYiEnhancement } from '../components/XiaoYiEnhancement';
 
 @Entry
 @Component
@@ -77,6 +78,27 @@ struct Index {
     return TAROT_CARDS.find((card: TarotCard): boolean => card.id === cardId) ?? TAROT_CARDS[0];
   }
 
+  private deriveRecentThemes(): string[] {
+    if (!this.recentThemesEnabled || this.history.length === 0) {
+      return [];
+    }
+    const recent: string[] = [];
+    const maxEntries: number = Math.min(5, this.history.length);
+    for (let index: number = 0; index < maxEntries; index++) {
+      const entry: string = this.history[index];
+      const parts: string[] = entry.split(' · ');
+      for (let partIndex: number = 1; partIndex < parts.length; partIndex++) {
+        if (!recent.includes(parts[partIndex])) {
+          recent.push(parts[partIndex]);
+          if (recent.length >= 3) {
+            return recent;
+          }
+        }
+      }
+    }
+    return recent;
+  }
+
   private noteFor(cardId: string): string {
     const note: StoredCardNote | undefined =
       this.notes.find((item: StoredCardNote): boolean => item.cardId === cardId);
@@ -131,7 +153,7 @@ struct Index {
       question: this.question,
       category: QuestionClassifier.classify(this.question),
       mood: this.mood,
-      recentThemes: this.recentThemesEnabled ? ['行动', '边界'] : [],
+      recentThemes: this.deriveRecentThemes(),
       cards: this.drawn
     };
     const result: ReadingResult = InterpretationService.build(context, TAROT_CARDS);
@@ -202,7 +224,7 @@ struct Index {
       .height(50)
       .fontSize(16)
       .fontWeight(FontWeight.Medium)
-      .fontColor('#20172E')
+      .fontColor(DesignTokens.TEXT_ON_GOLD)
       .backgroundColor(DesignTokens.GOLD_LIGHT)
       .borderRadius(14)
       .onClick(action)
@@ -219,8 +241,8 @@ struct Index {
     .width('100%')
     .height(66)
     .padding({ left: 8, right: 8 })
-    .backgroundColor('#11172F')
-    .border({ width: { top: 1 }, color: '#574873' })
+    .backgroundColor(DesignTokens.NAV_BG)
+    .border({ width: { top: 1 }, color: DesignTokens.NAV_BORDER })
   }
 
   @Builder
@@ -271,11 +293,11 @@ struct Index {
             .height(198)
             .objectFit(ImageFit.Cover)
             .borderRadius(12)
-            .shadow({ radius: 18, color: '#9A76D055' })
+            .shadow({ radius: 18, color: DesignTokens.CARD_SHADOW })
           Button('抽一张牌')
             .width(190)
             .height(46)
-            .fontColor('#20172E')
+            .fontColor(DesignTokens.TEXT_ON_GOLD)
             .backgroundColor(DesignTokens.GOLD_LIGHT)
             .borderRadius(14)
             .onClick((): void => this.chooseSpread('daily'))
@@ -284,7 +306,7 @@ struct Index {
         .padding(18)
         .backgroundColor(DesignTokens.CARD)
         .borderRadius(18)
-        .border({ width: 1, color: '#7A638B' })
+        .border({ width: 1, color: DesignTokens.PURPLE_BORDER_WARM })
 
         Text('快速入口')
           .width('100%')
@@ -309,7 +331,7 @@ struct Index {
         .width('100%')
         .padding(16)
         .alignItems(HorizontalAlign.Start)
-        .backgroundColor('#211A36')
+        .backgroundColor(DesignTokens.PURPLE_DEEP)
         .borderRadius(16)
       }
       .padding({ left: 16, right: 16, bottom: 24 })
@@ -334,7 +356,7 @@ struct Index {
     .padding(8)
     .backgroundColor(DesignTokens.SURFACE)
     .borderRadius(14)
-    .border({ width: 1, color: '#4A4165' })
+    .border({ width: 1, color: DesignTokens.PURPLE_BORDER })
     .onClick((): void => {
       if (target === 'catalog') {
         this.page = 'catalog';
@@ -376,7 +398,7 @@ struct Index {
     .padding(18)
     .backgroundColor(DesignTokens.CARD)
     .borderRadius(16)
-    .border({ width: 1, color: '#62517C' })
+    .border({ width: 1, color: DesignTokens.PURPLE_BORDER_LIGHT })
     .onClick((): void => this.chooseSpread(spread))
   }
 
@@ -391,7 +413,7 @@ struct Index {
         TextArea({ text: this.question, placeholder: '例如：我目前最需要关注什么？' })
           .height(150)
           .fontColor(DesignTokens.TEXT)
-          .placeholderColor('#77708A')
+          .placeholderColor(DesignTokens.PLACEHOLDER)
           .backgroundColor(DesignTokens.SURFACE)
           .borderRadius(14)
           .padding(14)
@@ -511,7 +533,9 @@ struct Index {
         if (this.safetyNotice.length > 0) {
           this.ResultSection('温和提醒', this.safetyNotice)
         }
-        this.XiaoYiOfflineSection()
+        XiaoYiEnhancement({
+          queryText: `${this.question.length > 0 ? this.question : '塔罗灵感解读'} · ${this.drawn.map((draw: DrawnCard): string => this.cardById(draw.cardId).nameZhCn).join('、')}`
+        })
         this.GoldButton('保存到记录', (): void => this.saveCurrent())
         Button('再抽一次')
           .width('100%')
@@ -546,38 +570,6 @@ struct Index {
   }
 
   @Builder
-  XiaoYiOfflineSection() {
-    Column({ space: 9 }) {
-      Row({ space: 8 }) {
-        Text('✦').fontSize(22).fontColor(DesignTokens.GOLD_LIGHT)
-        Text('小艺增强')
-          .fontSize(17)
-          .fontColor(DesignTokens.GOLD_LIGHT)
-      }
-      .width('100%')
-      Text('本地个性化解读已完成。正式智能体 ID 配置并通过设备能力检测后，可继续向小艺追问；当前构建不会上传问题或历史记录。')
-        .width('100%')
-        .fontSize(13)
-        .lineHeight(20)
-        .fontColor(DesignTokens.TEXT_SECONDARY)
-      Text('当前设备未启用小艺智能体组件')
-        .width('100%')
-        .padding(12)
-        .fontSize(13)
-        .fontColor(DesignTokens.TEXT_SECONDARY)
-        .textAlign(TextAlign.Center)
-        .backgroundColor('#17152A')
-        .borderRadius(12)
-    }
-    .width('100%')
-    .padding(16)
-    .alignItems(HorizontalAlign.Start)
-    .backgroundColor('#2A2142')
-    .borderRadius(14)
-    .border({ width: 1, color: '#6B5A9A' })
-  }
-
-  @Builder
   CatalogPage() {
     if (this.selectedCardId.length > 0) {
       this.CardDetailPage()
@@ -587,7 +579,7 @@ struct Index {
         TextInput({ text: this.searchText, placeholder: '搜索中文牌名或英文名' })
           .height(44)
           .fontColor(DesignTokens.TEXT)
-          .placeholderColor('#77708A')
+          .placeholderColor(DesignTokens.PLACEHOLDER)
           .backgroundColor(DesignTokens.SURFACE)
           .borderRadius(12)
           .onChange((value: string): void => {
@@ -694,8 +686,8 @@ struct Index {
             .height(112)
             .fontSize(14)
             .fontColor(DesignTokens.TEXT)
-            .placeholderColor('#77708A')
-            .backgroundColor('#17152A')
+            .placeholderColor(DesignTokens.PLACEHOLDER)
+            .backgroundColor(DesignTokens.PURPLE_DARK)
             .borderRadius(10)
             .onChange((value: string): void => {
               this.noteDraft = value.slice(0, 300);
@@ -827,7 +819,7 @@ struct Index {
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
       Toggle({ type: ToggleType.Switch, isOn: enabled })
-        .selectedColor('#6FBF73')
+        .selectedColor(DesignTokens.TOGGLE_ON)
         .onChange(change)
     }
     .width('100%')
@@ -872,6 +864,6 @@ struct Index {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#070B18')
+    .backgroundColor(DesignTokens.OUTER_BG)
   }
 }

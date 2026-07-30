@@ -15,7 +15,7 @@ HarmonyOS 6.1.1 原生单机塔罗灵感与自我反思应用。核心抽牌、�
 - `entry/src/main/ets/pages/`：路由页面与页面编排
 - `entry/src/main/ets/components/`：复用 UI
 - `entry/src/main/ets/services/`：抽牌、解读、系统能力
-- `entry/src/main/ets/repositories/`：本地持久化
+- `entry/src/main/ets/repositories/`：Preferences 与 RDB 持久化访问层
 - `entry/src/main/ets/models/`：领域模型
 - `entry/src/main/ets/common/`：设计令牌、常量和纯工具
 - `entry/src/main/resources/`：字符串、颜色、尺寸、牌面和知识数据

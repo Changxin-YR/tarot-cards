@@ -44,21 +44,21 @@ export struct XiaoYiEnhancement {
           .fontSize(13)
           .fontColor(DesignTokens.TEXT_SECONDARY)
           .textAlign(TextAlign.Center)
-          .backgroundColor('#17152A')
+          .backgroundColor(DesignTokens.PURPLE_DARK)
           .borderRadius(12)
       }
       if (this.lastError.length > 0) {
         Text(this.lastError)
           .fontSize(12)
-          .fontColor('#D9A5A5')
+          .fontColor(DesignTokens.ERROR_TEXT)
       }
     }
     .width('100%')
     .padding(16)
     .alignItems(HorizontalAlign.Start)
-    .backgroundColor('#2A2142')
+    .backgroundColor(DesignTokens.XIAOYI_BG)
     .borderRadius(14)
-    .border({ width: 1, color: '#6B5A9A' })
+    .border({ width: 1, color: DesignTokens.XIAOYI_BORDER })
   }
 }
 

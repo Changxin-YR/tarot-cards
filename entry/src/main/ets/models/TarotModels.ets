@@ -37,6 +37,7 @@ export interface DrawnCard {
 
 export interface ReadingContext {
   question: string;
+  supplement?: string;
   category: QuestionCategory;
   mood?: string;
   recentThemes: string[];

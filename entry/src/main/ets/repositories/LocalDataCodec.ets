@@ -4,8 +4,8 @@ export interface StoredCardNote {
 }
 
 export class LocalDataCodec {
-  private static readonly SEPARATOR: string = '\u001F';
-  private static readonly FIELD_SEPARATOR: string = '\u001E';
+  private static readonly SEPARATOR: string = '';
+  private static readonly FIELD_SEPARATOR: string = '';
 
   static encodeHistory(items: string[]): string {
     return items

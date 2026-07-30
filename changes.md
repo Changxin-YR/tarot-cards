@@ -8,6 +8,8 @@
 
 ### 已完成
 
+- 分析用户提供的 61.6 秒抽牌演示视频，提取牌阵推荐、洗牌、切牌、逐张选牌、确认翻牌和可选补充信息流程。
+- 新增 `docs/superpowers/plans/2026-07-30-reference-draw-flow-upgrade.md`，选择“迁移交互机制、保留离线内核与星夜视觉”的渐进改造方案。
 - 审计用户报告、UI 参考图、HarmonyOS 规范和 `claude-tarot-main.zip`。
 - 确认压缩包包含 MIT 授权的繁体牌义、78 张公共领域 RWS 独立牌面及来源说明。
 - 建立设计规格和分阶段实施计划。
@@ -33,6 +35,19 @@
 - Debug HAP 与 `entry@ohosTest` HAP：均构建通过；未配置签名时 DevEco 输出 unsigned 警告，当前模拟器允许安装该调试产物。
 - API 24 phone 模拟器：安装、启动、首页、每日抽牌、逆位牌面、个性化结果、结果页滚动、小艺降级提示、保存记录、强停重启后记录恢复、78 张牌库均通过交互验证。
 - 设备端 Hypium：`Tests run: 21, Failure: 0, Error: 0, Pass: 21`，覆盖收藏与牌义笔记编解码。
+
+### 设计审计修复
+
+根据 `design.md`、`docs/superpowers/specs/2026-07-30-tarot-inspiration-design.md` 和 `AGENTS.md` 进行用户视角测试与代码审计，修复以下问题：
+
+- 创建 `repositories/` 目录，将 `LocalAppStore.ets` 和 `LocalDataCodec.ets` 从 `services/` 迁移至 `repositories/`，符合设计规格中"repositories 是 Preferences 与 RDB 唯一访问层"的架构约束。
+- 修复 `Index.ets` 中近期主题使用硬编码 `['行动', '边界']` 的问题，改为从实际历史记录提取最近 5 条中的牌名主题。
+- 将结果页内联 `XiaoYiOfflineSection()` Builder 替换为已有 `XiaoYiEnhancement` 组件，消除重复实现，符合组件层设计。
+- 在 `ReadingContext` 模型中新增 `supplement?: string` 可选字段，并在 `InterpretationService` 中纳入补充信息用于生成摘要。
+- 将 `Index.ets` 和 `XiaoYiEnhancement.ets` 中 14 处硬编码颜色值提取到 `DesignTokens`，统一视觉令牌管理。
+- 新增 78 条字符串资源到 `string.json`，覆盖首页、抽牌、牌库、记录、设置等页面的用户可见文本。
+- 更新 `tasks.md` 中"完成全部页面与视觉还原"检查项为已完成，修正与 `design-qa.md` 的矛盾。
+- 修正 `README.md` 中 `repositories/` 目录描述。
 
 ### 风险
 

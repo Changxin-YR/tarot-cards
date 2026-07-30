@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@ohos/hypium';
-import { LocalDataCodec, StoredCardNote } from '../../../main/ets/services/LocalDataCodec';
+import { LocalDataCodec, StoredCardNote } from '../../../main/ets/repositories/LocalDataCodec';
 
 export default function localDataCodecTest(): void {
   describe('LocalDataCodec', () => {

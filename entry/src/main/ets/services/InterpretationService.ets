@@ -39,8 +39,11 @@ export class InterpretationService {
     const recentText: string = context.recentThemes.length === 0
       ? ''
       : `近期反复出现的主题是${context.recentThemes.slice(0, 2).join('、')}。`;
+    const supplementText: string = context.supplement === undefined || context.supplement.trim().length === 0
+      ? ''
+      : `你补充的”${context.supplement.trim().slice(0, 160)}”也让解读更贴近你的处境。`;
     const summary: string = SafetyService.soften(
-      `围绕${categoryLabel}，${primaryCard.nameZhCn}邀请你先关注“${primarySide.keywords[0]}”。${moodText}${recentText}`
+      `围绕${categoryLabel}，${primaryCard.nameZhCn}邀请你先关注”${primarySide.keywords[0]}”。${moodText}${recentText}${supplementText}`
     );
     const connection: string | undefined = sections.length === 3
       ? SafetyService.soften(
