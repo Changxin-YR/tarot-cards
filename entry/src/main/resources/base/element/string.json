@@ -91,6 +91,22 @@
     { "name": "nav_home", "value": "首页" },
     { "name": "nav_draw", "value": "抽牌" },
     { "name": "nav_catalog", "value": "牌库" },
-    { "name": "nav_history", "value": "记录" }
+    { "name": "nav_history", "value": "记录" },
+    { "name": "daily_spread_label", "value": "每日灵感" },
+    { "name": "daily_inspiration_quote", "value": "你已经走在寻找答案的路上，先看见此刻真正能做的一步。" },
+    { "name": "xiao_yi_fallback_query", "value": "塔罗灵感解读" },
+    { "name": "header_back_icon", "value": "‹" },
+    { "name": "header_moon_icon", "value": "☾" },
+    { "name": "header_settings_icon", "value": "⚙" },
+    { "name": "nav_home_icon", "value": "⌂" },
+    { "name": "nav_draw_icon", "value": "✦" },
+    { "name": "nav_catalog_icon", "value": "▤" },
+    { "name": "nav_history_icon", "value": "▧" },
+    { "name": "spread_arrow", "value": "›" },
+    { "name": "xiaoyi_title", "value": "小艺增强" },
+    { "name": "xiaoyi_description", "value": "本地解读始终可用。开启增强时，只发送当前问题、抽牌和本次解读摘要。" },
+    { "name": "xiaoyi_button_title", "value": "向小艺继续问" },
+    { "name": "xiaoyi_unavailable", "value": "当前离线构建尚未写入正式智能体 ID" },
+    { "name": "xiaoyi_error_prefix", "value": "暂时无法拉起小艺" }
   ]
 }

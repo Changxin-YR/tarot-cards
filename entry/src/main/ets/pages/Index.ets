@@ -15,6 +15,26 @@ import { StoredCardNote } from '../repositories/LocalDataCodec';
 import { QuestionClassifier } from '../services/QuestionClassifier';
 import { XiaoYiEnhancement } from '../components/XiaoYiEnhancement';
 
+// Mood options — label resource paired with internal value.
+const MOOD_OPTIONS: [Resource, string][] = [
+  [$r('app.string.mood_calm'), '平静'],
+  [$r('app.string.mood_expectant'), '期待'],
+  [$r('app.string.mood_nervous'), '紧张'],
+  [$r('app.string.mood_confused'), '困惑'],
+  [$r('app.string.mood_low'), '低落'],
+];
+
+// Catalog filter tabs — [category key, label resource].
+const CATALOG_FILTERS: [string, Resource][] = [
+  ['all', $r('app.string.catalog_all')],
+  ['favorite', $r('app.string.catalog_favorite')],
+  ['major', $r('app.string.catalog_major')],
+  ['wands', $r('app.string.catalog_wands')],
+  ['cups', $r('app.string.catalog_cups')],
+  ['swords', $r('app.string.catalog_swords')],
+  ['pentacles', $r('app.string.catalog_pentacles')],
+];
+
 @Entry
 @Component
 struct Index {
@@ -175,11 +195,16 @@ struct Index {
     });
   }
 
+  // Format the history-count label (e.g. "第 3 次记录").
+  private historyCountLabel(index: number): string {
+    return `第 ${this.history.length - index} 次记录`;
+  }
+
   @Builder
-  Header(title: string, showBack: boolean = false) {
+  Header(title: ResourceStr, showBack: boolean = false) {
     Row() {
       if (showBack) {
-        Button('‹')
+        Button($r('app.string.header_back_icon'))
           .type(ButtonType.Normal)
           .width(44)
           .height(44)
@@ -191,7 +216,7 @@ struct Index {
             this.selectedCardId = '';
           })
       } else {
-        Text('☾')
+        Text($r('app.string.header_moon_icon'))
           .width(44)
           .fontSize(25)
           .fontColor(DesignTokens.GOLD)
@@ -202,7 +227,7 @@ struct Index {
         .fontWeight(FontWeight.Bold)
         .fontColor(DesignTokens.TEXT)
         .textAlign(TextAlign.Center)
-      Button('⚙')
+      Button($r('app.string.header_settings_icon'))
         .type(ButtonType.Normal)
         .width(44)
         .height(44)
@@ -218,7 +243,7 @@ struct Index {
   }
 
   @Builder
-  GoldButton(label: string, action: () => void) {
+  GoldButton(label: ResourceStr, action: () => void) {
     Button(label)
       .width('100%')
       .height(50)
@@ -233,10 +258,10 @@ struct Index {
   @Builder
   NavBar() {
     Row() {
-      this.NavItem('⌂', '首页', 'home')
-      this.NavItem('✦', '抽牌', 'drawMode')
-      this.NavItem('▤', '牌库', 'catalog')
-      this.NavItem('▧', '记录', 'history')
+      this.NavItem($r('app.string.nav_home_icon'), $r('app.string.nav_home'), 'home')
+      this.NavItem($r('app.string.nav_draw_icon'), $r('app.string.nav_draw'), 'drawMode')
+      this.NavItem($r('app.string.nav_catalog_icon'), $r('app.string.nav_catalog'), 'catalog')
+      this.NavItem($r('app.string.nav_history_icon'), $r('app.string.nav_history'), 'history')
     }
     .width('100%')
     .height(66)
@@ -246,7 +271,7 @@ struct Index {
   }
 
   @Builder
-  NavItem(icon: string, label: string, target: string) {
+  NavItem(icon: ResourceStr, label: ResourceStr, target: string) {
     Column({ space: 2 }) {
       Text(icon)
         .fontSize(22)
@@ -268,13 +293,13 @@ struct Index {
   HomePage() {
     Scroll() {
       Column({ space: 16 }) {
-        this.Header('塔罗灵感牌')
+        this.Header($r('app.string.app_title'))
         Column({ space: 5 }) {
-          Text('晚上好，愿你在星光里听见自己')
+          Text($r('app.string.greeting'))
             .fontSize(20)
             .fontWeight(FontWeight.Medium)
             .fontColor(DesignTokens.TEXT)
-          Text('所有问题与记录仅保存在这台设备')
+          Text($r('app.string.privacy_local_only'))
             .fontSize(13)
             .fontColor(DesignTokens.TEXT_SECONDARY)
         }
@@ -282,10 +307,10 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
 
         Column({ space: 12 }) {
-          Text('每日一抽')
+          Text($r('app.string.daily_draw_title'))
             .fontSize(20)
             .fontColor(DesignTokens.GOLD_LIGHT)
-          Text('听从直觉，抽一张今日指引')
+          Text($r('app.string.daily_draw_hint'))
             .fontSize(13)
             .fontColor(DesignTokens.TEXT_SECONDARY)
           Image($r('app.media.card_back'))
@@ -294,7 +319,7 @@ struct Index {
             .objectFit(ImageFit.Cover)
             .borderRadius(12)
             .shadow({ radius: 18, color: DesignTokens.CARD_SHADOW })
-          Button('抽一张牌')
+          Button($r('app.string.draw_one_card_btn'))
             .width(190)
             .height(46)
             .fontColor(DesignTokens.TEXT_ON_GOLD)
@@ -308,22 +333,22 @@ struct Index {
         .borderRadius(18)
         .border({ width: 1, color: DesignTokens.PURPLE_BORDER_WARM })
 
-        Text('快速入口')
+        Text($r('app.string.quick_entry'))
           .width('100%')
           .fontSize(18)
           .fontColor(DesignTokens.TEXT)
         Row({ space: 10 }) {
-          this.QuickCard('✧', '单牌', '一个清晰方向', 'single')
-          this.QuickCard('♢', '三牌阵', '过去·现在·行动', 'three')
-          this.QuickCard('▤', '牌库', '探索 78 张牌', 'catalog')
+          this.QuickCard('✧', $r('app.string.single_card'), $r('app.string.single_card_desc'), 'single')
+          this.QuickCard('♢', $r('app.string.three_card_spread'), $r('app.string.three_card_desc'), 'three')
+          this.QuickCard('▤', $r('app.string.catalog'), $r('app.string.catalog_desc'), 'catalog')
         }
         .width('100%')
 
         Column({ space: 7 }) {
-          Text('今日灵感')
+          Text($r('app.string.daily_inspiration'))
             .fontSize(16)
             .fontColor(DesignTokens.GOLD_LIGHT)
-          Text('“你已经走在寻找答案的路上，先看见此刻真正能做的一步。”')
+          Text($r('app.string.daily_inspiration_quote'))
             .fontSize(15)
             .fontColor(DesignTokens.TEXT)
             .lineHeight(23)
@@ -340,7 +365,7 @@ struct Index {
   }
 
   @Builder
-  QuickCard(icon: string, title: string, subtitle: string, target: string) {
+  QuickCard(icon: string, title: ResourceStr, subtitle: ResourceStr, target: string) {
     Column({ space: 6 }) {
       Text(icon).fontSize(25).fontColor(DesignTokens.GOLD)
       Text(title).fontSize(14).fontColor(DesignTokens.TEXT)
@@ -369,20 +394,20 @@ struct Index {
   @Builder
   DrawModePage() {
     Column({ space: 18 }) {
-      this.Header('选择牌阵', true)
-      Text('专注当下，选择适合此刻问题的方式')
+      this.Header($r('app.string.choose_spread'), true)
+      Text($r('app.string.choose_spread_hint'))
         .fontSize(14)
         .fontColor(DesignTokens.TEXT_SECONDARY)
-      this.SpreadCard('✧', '单牌', '快速获得一个思考方向', 'single')
-      this.SpreadCard('♢', '三牌阵', '从过去、现在与行动建议看见联系', 'three')
-      this.SpreadCard('☾', '每日灵感', '每天固定一张，只属于今天的提醒', 'daily')
+      this.SpreadCard('✧', $r('app.string.single_card'), $r('app.string.single_card_spread_desc'), 'single')
+      this.SpreadCard('♢', $r('app.string.three_card_spread'), $r('app.string.three_card_spread_desc'), 'three')
+      this.SpreadCard('☾', $r('app.string.daily_spread_label'), $r('app.string.daily_spread_desc'), 'daily')
     }
     .layoutWeight(1)
     .padding({ left: 16, right: 16 })
   }
 
   @Builder
-  SpreadCard(icon: string, title: string, description: string, spread: string) {
+  SpreadCard(icon: string, title: ResourceStr, description: ResourceStr, spread: string) {
     Row({ space: 16 }) {
       Text(icon).fontSize(34).fontColor(DesignTokens.GOLD)
       Column({ space: 6 }) {
@@ -391,7 +416,7 @@ struct Index {
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
-      Text('›').fontSize(28).fontColor(DesignTokens.GOLD)
+      Text($r('app.string.spread_arrow')).fontSize(28).fontColor(DesignTokens.GOLD)
     }
     .width('100%')
     .height(112)
@@ -406,11 +431,11 @@ struct Index {
   QuestionPage() {
     Scroll() {
       Column({ space: 16 }) {
-        this.Header('输入你的问题', true)
-        Text('清晰的问题，更容易带来贴近当下的启发')
+        this.Header($r('app.string.input_question'), true)
+        Text($r('app.string.input_question_hint'))
           .fontSize(14)
           .fontColor(DesignTokens.TEXT_SECONDARY)
-        TextArea({ text: this.question, placeholder: '例如：我目前最需要关注什么？' })
+        TextArea({ text: this.question, placeholder: $r('app.string.question_placeholder') })
           .height(150)
           .fontColor(DesignTokens.TEXT)
           .placeholderColor(DesignTokens.PLACEHOLDER)
@@ -426,25 +451,25 @@ struct Index {
           .textAlign(TextAlign.End)
           .fontSize(12)
           .fontColor(DesignTokens.TEXT_SECONDARY)
-        Text('此刻的心情（可选）')
+        Text($r('app.string.mood_label'))
           .width('100%')
           .fontSize(16)
           .fontColor(DesignTokens.TEXT)
         Row({ space: 8 }) {
-          ForEach(['平静', '期待', '紧张', '困惑', '低落'], (value: string) => {
-            Button(value)
+          ForEach(MOOD_OPTIONS, (item: [Resource, string]) => {
+            Button(item[0])
               .layoutWeight(1)
               .height(38)
               .fontSize(12)
-              .fontColor(this.mood === value ? '#20172E' : DesignTokens.TEXT_SECONDARY)
-              .backgroundColor(this.mood === value ? DesignTokens.GOLD_LIGHT : DesignTokens.CARD)
+              .fontColor(this.mood === item[1] ? DesignTokens.TEXT_ON_GOLD : DesignTokens.TEXT_SECONDARY)
+              .backgroundColor(this.mood === item[1] ? DesignTokens.GOLD_LIGHT : DesignTokens.CARD)
               .borderRadius(19)
               .onClick((): void => {
-                this.mood = value;
+                this.mood = item[1];
               })
           })
         }
-        this.GoldButton(this.question.trim().length > 0 ? '下一步' : '跳过问题，直接抽牌', (): void => {
+        this.GoldButton(this.question.trim().length > 0 ? $r('app.string.next_step') : $r('app.string.skip_to_draw'), (): void => {
           this.page = 'shuffle';
         })
       }
@@ -456,9 +481,9 @@ struct Index {
   @Builder
   ShufflePage() {
     Column({ space: 18 }) {
-      this.Header('静下心来', true)
+      this.Header($r('app.string.breathe_title'), true)
       Blank()
-      Text('在心中默念你的问题')
+      Text($r('app.string.breathe_hint'))
         .fontSize(18)
         .fontColor(DesignTokens.TEXT)
       Stack() {
@@ -478,14 +503,11 @@ struct Index {
       }
       .height(265)
       Blank()
-      this.GoldButton(this.spread === 'three' ? '抽取三张牌' : '抽一张牌', (): void => {
+      this.GoldButton(this.spread === 'three' ? $r('app.string.draw_three_btn') : $r('app.string.draw_one_card_btn'), (): void => {
         this.completeDraw();
       })
     }
     .layoutWeight(1)
-    // Keep the primary action above the area occupied by the persistent
-    // navigation on the previous page. This also avoids stale hit targets
-    // during the page transition on physical devices.
     .padding({ left: 28, right: 28, bottom: 190 })
   }
 
@@ -493,9 +515,9 @@ struct Index {
   ResultPage() {
     Scroll() {
       Column({ space: 14 }) {
-        this.Header(this.spread === 'three' ? '三牌阵解读' : '你的灵感牌', true)
+        this.Header(this.spread === 'three' ? $r('app.string.three_result_title') : $r('app.string.single_result_title'), true)
         if (this.question.trim().length > 0) {
-          Text(`“${this.question}”`)
+          Text(`"${this.question}"`)
             .fontSize(13)
             .fontColor(DesignTokens.TEXT_SECONDARY)
             .textAlign(TextAlign.Center)
@@ -515,7 +537,7 @@ struct Index {
               Text(this.cardById(draw.cardId).nameZhCn)
                 .fontSize(14)
                 .fontColor(DesignTokens.TEXT)
-              Text(draw.orientation === 'upright' ? '正位' : '逆位')
+              Text(draw.orientation === 'upright' ? $r('app.string.orientation_upright') : $r('app.string.orientation_reversed'))
                 .fontSize(11)
                 .fontColor(DesignTokens.TEXT_SECONDARY)
             }
@@ -524,20 +546,20 @@ struct Index {
         }
         .width('100%')
         .justifyContent(FlexAlign.Center)
-        this.ResultSection('灵感解读', this.summary)
+        this.ResultSection($r('app.string.section_inspiration'), this.summary)
         if (this.connection.length > 0) {
-          this.ResultSection('三牌联系', this.connection)
+          this.ResultSection($r('app.string.section_connection'), this.connection)
         }
-        this.ResultSection('可以尝试', this.actionText)
-        this.ResultSection('留给自己的问题', this.reflection)
+        this.ResultSection($r('app.string.section_action'), this.actionText)
+        this.ResultSection($r('app.string.section_reflection'), this.reflection)
         if (this.safetyNotice.length > 0) {
-          this.ResultSection('温和提醒', this.safetyNotice)
+          this.ResultSection($r('app.string.section_safety'), this.safetyNotice)
         }
         XiaoYiEnhancement({
-          queryText: `${this.question.length > 0 ? this.question : '塔罗灵感解读'} · ${this.drawn.map((draw: DrawnCard): string => this.cardById(draw.cardId).nameZhCn).join('、')}`
+          queryText: `${this.question.length > 0 ? this.question : this.getResourceString($r('app.string.xiao_yi_fallback_query'))} · ${this.drawn.map((draw: DrawnCard): string => this.cardById(draw.cardId).nameZhCn).join('、')}`
         })
-        this.GoldButton('保存到记录', (): void => this.saveCurrent())
-        Button('再抽一次')
+        this.GoldButton($r('app.string.save_to_history'), (): void => this.saveCurrent())
+        Button($r('app.string.draw_again'))
           .width('100%')
           .height(48)
           .fontColor(DesignTokens.GOLD_LIGHT)
@@ -554,7 +576,7 @@ struct Index {
   }
 
   @Builder
-  ResultSection(title: string, content: string) {
+  ResultSection(title: ResourceStr, content: string) {
     Column({ space: 8 }) {
       Text(title).fontSize(17).fontColor(DesignTokens.GOLD_LIGHT)
       Text(content)
@@ -575,8 +597,8 @@ struct Index {
       this.CardDetailPage()
     } else {
       Column({ space: 10 }) {
-        this.Header('牌库')
-        TextInput({ text: this.searchText, placeholder: '搜索中文牌名或英文名' })
+        this.Header($r('app.string.catalog'))
+        TextInput({ text: this.searchText, placeholder: $r('app.string.search_placeholder') })
           .height(44)
           .fontColor(DesignTokens.TEXT)
           .placeholderColor(DesignTokens.PLACEHOLDER)
@@ -587,19 +609,11 @@ struct Index {
           })
         Scroll() {
           Row({ space: 8 }) {
-            ForEach([
-              ['all', '全部'],
-              ['favorite', '收藏'],
-              ['major', '大阿'],
-              ['wands', '权杖'],
-              ['cups', '圣杯'],
-              ['swords', '宝剑'],
-              ['pentacles', '星币']
-            ], (item: string[]) => {
+            ForEach(CATALOG_FILTERS, (item: [string, Resource]) => {
               Button(item[1])
                 .height(36)
                 .fontSize(12)
-                .fontColor(this.catalogFilter === item[0] ? '#20172E' : DesignTokens.TEXT_SECONDARY)
+                .fontColor(this.catalogFilter === item[0] ? DesignTokens.TEXT_ON_GOLD : DesignTokens.TEXT_SECONDARY)
                 .backgroundColor(this.catalogFilter === item[0] ? DesignTokens.GOLD_LIGHT : DesignTokens.CARD)
                 .borderRadius(18)
                 .onClick((): void => {
@@ -651,7 +665,7 @@ struct Index {
   CardDetailPage() {
     Scroll() {
       Column({ space: 14 }) {
-        this.Header('牌义详情', true)
+        this.Header($r('app.string.card_detail_title'), true)
         Image(tarotMedia(this.selectedCardId))
           .width(220)
           .height(330)
@@ -663,7 +677,7 @@ struct Index {
         Text(this.cardById(this.selectedCardId).nameEn)
           .fontSize(14)
           .fontColor(DesignTokens.TEXT_SECONDARY)
-        Button(this.favorites.includes(this.selectedCardId) ? '★ 已收藏' : '☆ 收藏')
+        Button(this.favorites.includes(this.selectedCardId) ? $r('app.string.favorite_btn_active') : $r('app.string.favorite_btn'))
           .width('100%')
           .height(44)
           .fontColor(DesignTokens.GOLD_LIGHT)
@@ -673,15 +687,15 @@ struct Index {
           .onClick((): void => {
             this.toggleFavorite(this.selectedCardId);
           })
-        this.ResultSection('正位', this.cardById(this.selectedCardId).upright.meaning)
-        this.ResultSection('逆位', this.cardById(this.selectedCardId).reversed.meaning)
-        this.ResultSection('象征', this.cardById(this.selectedCardId).symbolism)
+        this.ResultSection($r('app.string.section_upright'), this.cardById(this.selectedCardId).upright.meaning)
+        this.ResultSection($r('app.string.section_reversed'), this.cardById(this.selectedCardId).reversed.meaning)
+        this.ResultSection($r('app.string.section_symbolism'), this.cardById(this.selectedCardId).symbolism)
         Column({ space: 8 }) {
-          Text('我的牌义笔记')
+          Text($r('app.string.note_title'))
             .width('100%')
             .fontSize(17)
             .fontColor(DesignTokens.GOLD_LIGHT)
-          TextArea({ text: this.noteDraft, placeholder: '记下这张牌此刻带给你的联想…' })
+          TextArea({ text: this.noteDraft, placeholder: $r('app.string.note_placeholder') })
             .width('100%')
             .height(112)
             .fontSize(14)
@@ -697,7 +711,7 @@ struct Index {
             .fontSize(11)
             .fontColor(DesignTokens.TEXT_SECONDARY)
             .textAlign(TextAlign.End)
-          this.GoldButton('保存牌义笔记', (): void => {
+          this.GoldButton($r('app.string.save_note_btn'), (): void => {
             this.saveCardNote(this.selectedCardId);
           })
         }
@@ -706,7 +720,7 @@ struct Index {
         .alignItems(HorizontalAlign.Start)
         .backgroundColor(DesignTokens.SURFACE)
         .borderRadius(14)
-        Button('返回牌库')
+        Button($r('app.string.back_to_catalog'))
           .width('100%')
           .height(48)
           .fontColor(DesignTokens.GOLD_LIGHT)
@@ -726,7 +740,7 @@ struct Index {
   @Builder
   HistoryPage() {
     Column({ space: 14 }) {
-      this.Header('灵感记录')
+      this.Header($r('app.string.history_title'))
       if (this.history.length === 0) {
         Blank()
         Image($r('app.media.card_placeholder'))
@@ -734,10 +748,10 @@ struct Index {
           .height(222)
           .objectFit(ImageFit.Cover)
           .borderRadius(12)
-        Text('还没有保存过解读')
+        Text($r('app.string.history_empty'))
           .fontSize(18)
           .fontColor(DesignTokens.TEXT)
-        Text('完成一次抽牌后，可以把有共鸣的结果留在这里')
+        Text($r('app.string.history_empty_hint'))
           .fontSize(13)
           .fontColor(DesignTokens.TEXT_SECONDARY)
           .textAlign(TextAlign.Center)
@@ -754,7 +768,7 @@ struct Index {
                   .borderRadius(6)
                 Column({ space: 6 }) {
                   Text(item).fontSize(15).fontColor(DesignTokens.TEXT)
-                  Text(`第 ${this.history.length - index} 次记录`)
+                  Text(this.historyCountLabel(index))
                     .fontSize(12)
                     .fontColor(DesignTokens.TEXT_SECONDARY)
                 }
@@ -779,30 +793,30 @@ struct Index {
   SettingsPage() {
     Scroll() {
       Column({ space: 12 }) {
-        this.Header('设置', true)
-        this.SettingRow('启用逆位', '关闭后所有抽牌只出现正位', this.reversalsEnabled, (value: boolean): void => {
+        this.Header($r('app.string.settings_title'), true)
+        this.SettingRow($r('app.string.setting_reversals'), $r('app.string.setting_reversals_desc'), this.reversalsEnabled, (value: boolean): void => {
           this.reversalsEnabled = value;
           this.localStore.saveBoolean('reversals', value).catch((): void => {
           });
         })
-        this.SettingRow('音效', '洗牌与翻牌时的轻柔声音', this.soundEnabled, (value: boolean): void => {
+        this.SettingRow($r('app.string.setting_sound'), $r('app.string.setting_sound_desc'), this.soundEnabled, (value: boolean): void => {
           this.soundEnabled = value;
           this.localStore.saveBoolean('sound', value).catch((): void => {
           });
         })
-        this.SettingRow('振动', '重要操作的触感反馈', this.hapticEnabled, (value: boolean): void => {
+        this.SettingRow($r('app.string.setting_haptic'), $r('app.string.setting_haptic_desc'), this.hapticEnabled, (value: boolean): void => {
           this.hapticEnabled = value;
           this.localStore.saveBoolean('haptic', value).catch((): void => {
           });
         })
-        this.SettingRow('近期主题个性化', '仅在本机参考近期主题', this.recentThemesEnabled, (value: boolean): void => {
+        this.SettingRow($r('app.string.setting_themes'), $r('app.string.setting_themes_desc'), this.recentThemesEnabled, (value: boolean): void => {
           this.recentThemesEnabled = value;
           this.localStore.saveBoolean('recentThemes', value).catch((): void => {
           });
         })
-        this.ResultSection('隐私与安全', '问题、心情、笔记和抽牌结果默认只保存在当前设备。小艺增强需要用户主动确认，且不会自动发送历史记录。')
-        this.ResultSection('使用说明', '塔罗用于娱乐、自我探索和情绪整理，不代表对未来的确定预测，也不能替代医疗、法律、心理咨询或投资建议。')
-        this.ResultSection('关于', '塔罗灵感牌 V1.0 · HarmonyOS 原生单机版')
+        this.ResultSection($r('app.string.privacy_section'), this.getResourceString($r('app.string.privacy_desc')))
+        this.ResultSection($r('app.string.usage_section'), this.getResourceString($r('app.string.usage_desc')))
+        this.ResultSection($r('app.string.about_section'), this.getResourceString($r('app.string.about_desc')))
       }
       .padding({ left: 16, right: 16, bottom: 24 })
     }
@@ -810,7 +824,7 @@ struct Index {
   }
 
   @Builder
-  SettingRow(title: string, subtitle: string, enabled: boolean, change: (value: boolean) => void) {
+  SettingRow(title: ResourceStr, subtitle: ResourceStr, enabled: boolean, change: (value: boolean) => void) {
     Row({ space: 12 }) {
       Column({ space: 5 }) {
         Text(title).fontSize(16).fontColor(DesignTokens.TEXT)
@@ -865,5 +879,18 @@ struct Index {
     .width('100%')
     .height('100%')
     .backgroundColor(DesignTokens.OUTER_BG)
+  }
+
+  // Resolve a resource to a string at runtime. Used when a resource must be
+  // embedded inside a longer template literal like XiaoYi queryText.
+  private getResourceString(resource: Resource): string {
+    try {
+      const ctx: common.Context | undefined = this.getUIContext().getHostContext();
+      if (ctx !== undefined) {
+        return ctx.resourceManager.getStringSync(resource);
+      }
+    } catch {
+    }
+    return '塔罗灵感解读';
   }
 }
