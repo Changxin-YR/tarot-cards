@@ -1,6 +1,7 @@
 .hvigor/
 oh_modules/
 entry/.preview/
+entry/.test/
 entry/build/
 .idea/
 local.properties
@@ -9,4 +10,11 @@ local.properties
 *.p12
 *.p7b
 *.cer
-
+docs/qa/*.json
+docs/qa/*.log
+docs/qa/screenshots/2026-07-30-home.jpeg
+docs/qa/screenshots/2026-07-30-home-2.jpeg
+docs/qa/screenshots/2026-07-30-shuffle.jpeg
+docs/qa/screenshots/2026-07-30-result.jpeg
+docs/qa/screenshots/2026-07-30-return.jpeg
+docs/qa/screenshots/2026-07-30-result-uinput.jpeg

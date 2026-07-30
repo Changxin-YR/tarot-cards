@@ -1,13 +1,13 @@
 # 塔罗灵感牌
 
-HarmonyOS 6.1.1 原生单机塔罗灵感与自我反思应用。核心抽牌、牌库、个性化解读、历史、收藏、笔记和设置均离线运行；小艺智能体仅作为用户主动开启的可选增强。
+HarmonyOS 6.1.1 原生单机塔罗灵感与自我反思应用。核心抽牌、牌库、个性化解读、历史和设置均离线运行；收藏、笔记与正式小艺联调仍在 V1.0 后续阶段。
 
 ## 技术栈
 
 - HarmonyOS Stage 模型
 - ArkTS / ArkUI
 - API 24
-- Preferences / RDB
+- Preferences
 - Agent Framework Kit（可选增强）
 
 ## 目录
@@ -33,4 +33,3 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-harmony.ps1 
 ## 当前状态
 
 工程处于 V1.0 实施阶段，真实进度见 `tasks.md`，验证记录见 `changes.md` 与 `design-qa.md`。
-
