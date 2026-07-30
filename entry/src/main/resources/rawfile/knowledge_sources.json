@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "id": "waite-1910",
+      "title": "The Pictorial Key to the Tarot",
+      "author": "Arthur Edward Waite",
+      "year": 1910,
+      "license": "Public Domain",
+      "usage": "牌义与象征的公共领域来源锚点"
+    },
+    {
+      "id": "claude-tarot-mit-2026",
+      "title": "Claude Tarot cards.json",
+      "author": "Alex Yeh",
+      "year": 2026,
+      "license": "MIT",
+      "usage": "现代繁体中文重写，经本项目规范化为简体中文"
+    }
+  ]
+}
