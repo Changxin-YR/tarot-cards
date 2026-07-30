@@ -11,6 +11,7 @@ import {
 import { DrawService } from '../services/DrawService';
 import { InterpretationService } from '../services/InterpretationService';
 import { LocalAppStore, StoredAppData } from '../services/LocalAppStore';
+import { StoredCardNote } from '../services/LocalDataCodec';
 import { QuestionClassifier } from '../services/QuestionClassifier';
 
 @Entry
@@ -27,6 +28,9 @@ struct Index {
   @State reflection: string = '';
   @State safetyNotice: string = '';
   @State history: string[] = [];
+  @State favorites: string[] = [];
+  @State notes: StoredCardNote[] = [];
+  @State noteDraft: string = '';
   @State catalogFilter: string = 'all';
   @State searchText: string = '';
   @State selectedCardId: string = '';
@@ -45,6 +49,8 @@ struct Index {
       await this.localStore.initialize(context);
       const data: StoredAppData = await this.localStore.load();
       this.history = data.history;
+      this.favorites = data.favorites;
+      this.notes = data.notes;
       this.reversalsEnabled = data.reversalsEnabled;
       this.soundEnabled = data.soundEnabled;
       this.hapticEnabled = data.hapticEnabled;
@@ -56,7 +62,9 @@ struct Index {
   private filteredCards(): TarotCard[] {
     return TAROT_CARDS.filter((card: TarotCard): boolean => {
       const matchesCategory: boolean =
-        this.catalogFilter === 'all' || card.arcana === this.catalogFilter;
+        this.catalogFilter === 'all' ||
+        card.arcana === this.catalogFilter ||
+        (this.catalogFilter === 'favorite' && this.favorites.includes(card.id));
       const matchesSearch: boolean =
         this.searchText.trim().length === 0 ||
         card.nameZhCn.includes(this.searchText.trim()) ||
@@ -67,6 +75,38 @@ struct Index {
 
   private cardById(cardId: string): TarotCard {
     return TAROT_CARDS.find((card: TarotCard): boolean => card.id === cardId) ?? TAROT_CARDS[0];
+  }
+
+  private noteFor(cardId: string): string {
+    const note: StoredCardNote | undefined =
+      this.notes.find((item: StoredCardNote): boolean => item.cardId === cardId);
+    return note?.content ?? '';
+  }
+
+  private openCard(cardId: string): void {
+    this.selectedCardId = cardId;
+    this.noteDraft = this.noteFor(cardId);
+  }
+
+  private toggleFavorite(cardId: string): void {
+    if (this.favorites.includes(cardId)) {
+      this.favorites = this.favorites.filter((item: string): boolean => item !== cardId);
+    } else {
+      this.favorites = [...this.favorites, cardId];
+    }
+    this.localStore.saveFavorites(this.favorites).catch((): void => {
+    });
+  }
+
+  private saveCardNote(cardId: string): void {
+    const remaining: StoredCardNote[] =
+      this.notes.filter((item: StoredCardNote): boolean => item.cardId !== cardId);
+    if (this.noteDraft.trim().length > 0) {
+      remaining.push({ cardId, content: this.noteDraft.trim() });
+    }
+    this.notes = remaining;
+    this.localStore.saveNotes(this.notes).catch((): void => {
+    });
   }
 
   private chooseSpread(spread: string): void {
@@ -557,6 +597,7 @@ struct Index {
           Row({ space: 8 }) {
             ForEach([
               ['all', '全部'],
+              ['favorite', '收藏'],
               ['major', '大阿'],
               ['wands', '权杖'],
               ['cups', '圣杯'],
@@ -600,7 +641,7 @@ struct Index {
               .backgroundColor(DesignTokens.SURFACE)
               .borderRadius(12)
               .onClick((): void => {
-                this.selectedCardId = card.id;
+                this.openCard(card.id);
               })
             }
           }, (card: TarotCard): string => card.id)
@@ -630,9 +671,49 @@ struct Index {
         Text(this.cardById(this.selectedCardId).nameEn)
           .fontSize(14)
           .fontColor(DesignTokens.TEXT_SECONDARY)
+        Button(this.favorites.includes(this.selectedCardId) ? '★ 已收藏' : '☆ 收藏')
+          .width('100%')
+          .height(44)
+          .fontColor(DesignTokens.GOLD_LIGHT)
+          .backgroundColor(DesignTokens.CARD)
+          .border({ width: 1, color: DesignTokens.GOLD })
+          .borderRadius(12)
+          .onClick((): void => {
+            this.toggleFavorite(this.selectedCardId);
+          })
         this.ResultSection('正位', this.cardById(this.selectedCardId).upright.meaning)
         this.ResultSection('逆位', this.cardById(this.selectedCardId).reversed.meaning)
         this.ResultSection('象征', this.cardById(this.selectedCardId).symbolism)
+        Column({ space: 8 }) {
+          Text('我的牌义笔记')
+            .width('100%')
+            .fontSize(17)
+            .fontColor(DesignTokens.GOLD_LIGHT)
+          TextArea({ text: this.noteDraft, placeholder: '记下这张牌此刻带给你的联想…' })
+            .width('100%')
+            .height(112)
+            .fontSize(14)
+            .fontColor(DesignTokens.TEXT)
+            .placeholderColor('#77708A')
+            .backgroundColor('#17152A')
+            .borderRadius(10)
+            .onChange((value: string): void => {
+              this.noteDraft = value.slice(0, 300);
+            })
+          Text(`${this.noteDraft.length}/300`)
+            .width('100%')
+            .fontSize(11)
+            .fontColor(DesignTokens.TEXT_SECONDARY)
+            .textAlign(TextAlign.End)
+          this.GoldButton('保存牌义笔记', (): void => {
+            this.saveCardNote(this.selectedCardId);
+          })
+        }
+        .width('100%')
+        .padding(14)
+        .alignItems(HorizontalAlign.Start)
+        .backgroundColor(DesignTokens.SURFACE)
+        .borderRadius(14)
         Button('返回牌库')
           .width('100%')
           .height(48)
@@ -641,10 +722,12 @@ struct Index {
           .borderRadius(14)
           .onClick((): void => {
             this.selectedCardId = '';
+            this.noteDraft = '';
           })
       }
       .padding({ left: 16, right: 16, bottom: 24 })
     }
+    .id(`card-detail-${this.selectedCardId}`)
     .layoutWeight(1)
   }
 

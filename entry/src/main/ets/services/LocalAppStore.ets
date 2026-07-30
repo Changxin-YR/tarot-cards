@@ -1,9 +1,11 @@
 import { common } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
-import { LocalDataCodec } from './LocalDataCodec';
+import { LocalDataCodec, StoredCardNote } from './LocalDataCodec';
 
 export interface StoredAppData {
   history: string[];
+  favorites: string[];
+  notes: StoredCardNote[];
   reversalsEnabled: boolean;
   soundEnabled: boolean;
   hapticEnabled: boolean;
@@ -26,12 +28,16 @@ export class LocalAppStore {
       return this.defaults();
     }
     let historyValue: preferences.ValueType = '';
+    let favoritesValue: preferences.ValueType = '';
+    let notesValue: preferences.ValueType = '';
     let reversalsValue: preferences.ValueType = true;
     let soundValue: preferences.ValueType = true;
     let hapticValue: preferences.ValueType = true;
     let recentValue: preferences.ValueType = true;
     try {
       historyValue = await this.store.get('history', '');
+      favoritesValue = await this.store.get('favorites', '');
+      notesValue = await this.store.get('notes', '');
       reversalsValue = await this.store.get('reversals', true);
       soundValue = await this.store.get('sound', true);
       hapticValue = await this.store.get('haptic', true);
@@ -43,6 +49,12 @@ export class LocalAppStore {
       history: LocalDataCodec.decodeHistory(
         typeof historyValue === 'string' ? historyValue : ''
       ),
+      favorites: LocalDataCodec.decodeFavorites(
+        typeof favoritesValue === 'string' ? favoritesValue : ''
+      ),
+      notes: LocalDataCodec.decodeNotes(
+        typeof notesValue === 'string' ? notesValue : ''
+      ),
       reversalsEnabled: typeof reversalsValue === 'boolean' ? reversalsValue : true,
       soundEnabled: typeof soundValue === 'boolean' ? soundValue : true,
       hapticEnabled: typeof hapticValue === 'boolean' ? hapticValue : true,
@@ -52,6 +64,14 @@ export class LocalAppStore {
 
   async saveHistory(history: string[]): Promise<void> {
     await this.put('history', LocalDataCodec.encodeHistory(history));
+  }
+
+  async saveFavorites(cardIds: string[]): Promise<void> {
+    await this.put('favorites', LocalDataCodec.encodeFavorites(cardIds));
+  }
+
+  async saveNotes(notes: StoredCardNote[]): Promise<void> {
+    await this.put('notes', LocalDataCodec.encodeNotes(notes));
   }
 
   async saveBoolean(key: string, value: boolean): Promise<void> {
@@ -72,6 +92,8 @@ export class LocalAppStore {
   private defaults(): StoredAppData {
     return {
       history: [],
+      favorites: [],
+      notes: [],
       reversalsEnabled: true,
       soundEnabled: true,
       hapticEnabled: true,
