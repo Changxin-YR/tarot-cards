@@ -1,0 +1,8 @@
+{
+  "name": "@ohos/hypium",
+  "version": "1.0.0",
+  "description": "HarmonyOS SDK bundled Hypium test framework",
+  "main": "index.js",
+  "dependencies": {
+  }
+}

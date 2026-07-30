@@ -2,6 +2,7 @@
   "modelVersion": "6.0.0",
   "description": "塔罗灵感牌 API 24 原生 HarmonyOS 单机应用",
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "@ohos/hypium": "file:./vendor/hypium"
+  }
 }
-
