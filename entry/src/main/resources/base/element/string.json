@@ -1,0 +1,12 @@
+{
+  "string": [
+    { "name": "module_desc", "value": "离线塔罗灵感与自我反思工具" },
+    { "name": "entry_ability_desc", "value": "塔罗灵感牌主界面" },
+    { "name": "entry_ability_label", "value": "塔罗灵感牌" },
+    { "name": "vibration_reason", "value": "用于洗牌、翻牌和保存时提供轻柔触感反馈" },
+    { "name": "welcome_title", "value": "塔罗灵感牌" },
+    { "name": "welcome_subtitle", "value": "倾听内心，遇见当下的自己" },
+    { "name": "building_message", "value": "星月正在为你整理灵感…" }
+  ]
+}
+

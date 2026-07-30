@@ -1,0 +1,10 @@
+{
+  "color": [
+    { "name": "background", "value": "#0E1024" },
+    { "name": "surface", "value": "#141B3A" },
+    { "name": "card", "value": "#1F2854" },
+    { "name": "gold", "value": "#E2C07A" },
+    { "name": "text_primary", "value": "#FFF1CC" },
+    { "name": "text_secondary", "value": "#B8B2C8" }
+  ]
+}
