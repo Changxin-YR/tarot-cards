@@ -4,6 +4,7 @@ import { DesignTokens } from '../common/DesignTokens';
 import { tarotThemeBack, tarotThemeMedia } from '../common/TarotThemeMedia';
 import {
   DrawnCard,
+  CardReadingSection,
   ReadingDepth,
   ReadingScene,
   ReadingContext,
@@ -13,10 +14,13 @@ import {
 import { TarotThemeId } from '../models/TarotModels';
 import { DrawService } from '../services/DrawService';
 import { InterpretationService } from '../services/InterpretationService';
-import { LocalAppStore, StoredAppData } from '../repositories/LocalAppStore';
+import { LocalAppStore } from '../repositories/LocalAppStore';
+import { StoredAppData } from '../repositories/AppDataRepository';
 import { StoredCardNote, StoredReadingRecord } from '../repositories/LocalDataCodec';
 import { QuestionClassifier } from '../services/QuestionClassifier';
 import { SpreadService } from '../services/SpreadService';
+import { ReadingCollections } from '../services/ReadingRecordService';
+import { AppDataService } from '../services/AppDataService';
 
 // Mood options — label resource paired with internal value.
 const MOOD_OPTIONS: [Resource, string][] = [
@@ -61,6 +65,9 @@ struct Index {
   @State actionText: string = '';
   @State reflection: string = '';
   @State safetyNotice: string = '';
+  @State resultSections: CardReadingSection[] = [];
+  @State resultAlgorithmVersion: number = 1;
+  @State storageError: boolean = false;
   @State history: string[] = [];
   @State favorites: string[] = [];
   @State notes: StoredCardNote[] = [];
@@ -75,9 +82,11 @@ struct Index {
   @State currentTheme: TarotThemeId = 'moon_garden';
   @State records: StoredReadingRecord[] = [];
   @State currentSaved: boolean = false;
+  @State saveInProgress: boolean = false;
+  @State savedRecordId: string = '';
   @State readingScene: ReadingScene = 'growth';
   @State readingDepth: ReadingDepth = 'concise';
-  private localStore: LocalAppStore = new LocalAppStore();
+  private appDataService: AppDataService = new AppDataService(new LocalAppStore());
 
   async aboutToAppear(): Promise<void> {
     const context: common.Context | undefined = this.getUIContext().getHostContext();
@@ -85,8 +94,7 @@ struct Index {
       return;
     }
     try {
-      await this.localStore.initialize(context);
-      const data: StoredAppData = await this.localStore.load();
+      const data: StoredAppData = await this.appDataService.initialize(context);
       this.history = data.history;
       this.favorites = data.favorites;
       this.notes = data.notes;
@@ -97,6 +105,7 @@ struct Index {
       this.currentTheme = data.themeId;
       this.records = data.records;
     } catch {
+      this.storageError = true;
     }
   }
 
@@ -150,25 +159,49 @@ struct Index {
     this.noteDraft = this.noteFor(cardId);
   }
 
-  private toggleFavorite(cardId: string): void {
-    if (this.favorites.includes(cardId)) {
-      this.favorites = this.favorites.filter((item: string): boolean => item !== cardId);
-    } else {
-      this.favorites = [...this.favorites, cardId];
+  private async toggleFavorite(cardId: string): Promise<void> {
+    try {
+      this.favorites = await this.appDataService.toggleFavorite(this.favorites, cardId);
+      this.storageError = false;
+    } catch {
+      this.storageError = true;
     }
-    this.localStore.saveFavorites(this.favorites).catch((): void => {
-    });
   }
 
-  private saveCardNote(cardId: string): void {
-    const remaining: StoredCardNote[] =
-      this.notes.filter((item: StoredCardNote): boolean => item.cardId !== cardId);
-    if (this.noteDraft.trim().length > 0) {
-      remaining.push({ cardId, content: this.noteDraft.trim() });
+  private async saveCardNote(cardId: string): Promise<void> {
+    try {
+      this.notes = await this.appDataService.saveCardNote(this.notes, cardId, this.noteDraft);
+      this.storageError = false;
+    } catch {
+      this.storageError = true;
     }
-    this.notes = remaining;
-    this.localStore.saveNotes(this.notes).catch((): void => {
-    });
+  }
+
+  private async saveBooleanSetting(key: string, value: boolean): Promise<void> {
+    try {
+      const saved: boolean = await this.appDataService.saveBoolean(key, value);
+      if (key === 'reversals') {
+        this.reversalsEnabled = saved;
+      } else if (key === 'sound') {
+        this.soundEnabled = saved;
+      } else if (key === 'haptic') {
+        this.hapticEnabled = saved;
+      } else if (key === 'recentThemes') {
+        this.recentThemesEnabled = saved;
+      }
+      this.storageError = false;
+    } catch {
+      this.storageError = true;
+    }
+  }
+
+  private async selectTheme(themeId: TarotThemeId): Promise<void> {
+    try {
+      this.currentTheme = await this.appDataService.saveTheme(themeId);
+      this.storageError = false;
+    } catch {
+      this.storageError = true;
+    }
   }
 
   private chooseSpread(spread: string): void {
@@ -200,6 +233,7 @@ struct Index {
     }
     this.clarifications = [];
     this.currentSaved = false;
+    this.savedRecordId = '';
     this.updateReading(this.drawn);
     this.page = 'result';
   }
@@ -220,10 +254,12 @@ struct Index {
     this.actionText = result.action;
     this.reflection = result.reflection;
     this.safetyNotice = result.safetyNotice ?? '';
+    this.resultSections = result.sections;
+    this.resultAlgorithmVersion = result.algorithmVersion;
   }
 
   private addClarification(): void {
-    if (this.clarifications.length >= 3) {
+    if (this.saveInProgress || this.clarifications.length >= 3) {
       return;
     }
     const ids: string[] = TAROT_CARDS.map((card: TarotCard): string => card.id);
@@ -245,26 +281,190 @@ struct Index {
     };
     this.clarifications = this.clarifications.concat([clarification]);
     this.updateReading(this.drawn.concat(this.clarifications));
+    this.currentSaved = false;
   }
 
-  private saveCurrent(): void {
-    if (this.currentSaved) {
+  private async saveCurrent(): Promise<void> {
+    if (this.currentSaved || this.saveInProgress) {
       return;
     }
+    this.saveInProgress = true;
+    if (this.savedRecordId.length === 0) {
+      this.savedRecordId = `reading-${Date.now()}`;
+    }
+    const recordId: string = this.savedRecordId;
+    const existing: StoredReadingRecord | undefined = this.records.find(
+      (item: StoredReadingRecord): boolean => item.id === recordId
+    );
     const record: StoredReadingRecord = {
-      id: `reading-${Date.now()}`,
-      createdAt: Date.now(),
+      schemaVersion: 3,
+      id: recordId,
+      createdAt: existing?.createdAt ?? Date.now(),
       question: this.question,
+      mood: this.mood,
       scene: this.readingScene,
       depth: this.readingDepth,
       spreadType: this.spread,
       themeId: this.currentTheme,
-      cards: this.drawn.concat(this.clarifications),
-      summary: this.summary
+      cards: this.drawn,
+      clarifications: this.clarifications,
+      result: {
+        summary: this.summary,
+        sections: this.resultSections,
+        connection: this.connection.length > 0 ? this.connection : undefined,
+        action: this.actionText,
+        reflection: this.reflection,
+        safetyNotice: this.safetyNotice.length > 0 ? this.safetyNotice : undefined,
+        algorithmVersion: this.resultAlgorithmVersion
+      },
+      note: '',
+      favorite: false
     };
-    this.records = [record].concat(this.records);
-    this.currentSaved = true;
-    this.localStore.saveRecords(this.records).catch((): void => {
+    try {
+      const next: ReadingCollections = await this.appDataService.upsertRecord(record);
+      this.records = next.records;
+      this.history = next.history;
+      this.currentSaved = true;
+      this.storageError = false;
+    } catch {
+      this.storageError = true;
+    } finally {
+      this.saveInProgress = false;
+    }
+  }
+
+  private async deleteRecord(recordId: string): Promise<void> {
+    try {
+      const next: ReadingCollections = await this.appDataService.removeRecord(recordId);
+      this.records = next.records;
+      this.history = next.history;
+      if (this.savedRecordId === recordId) {
+        this.savedRecordId = '';
+        this.currentSaved = false;
+      }
+      this.storageError = false;
+    } catch {
+      this.storageError = true;
+    }
+  }
+
+  private confirmDeleteRecord(recordId: string): void {
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.delete_record_title'),
+      message: $r('app.string.delete_record_message'),
+      primaryButton: {
+        value: $r('app.string.cancel_action'),
+        action: (): void => {
+        }
+      },
+      secondaryButton: {
+        value: $r('app.string.delete_action'),
+        fontColor: DesignTokens.ERROR_TEXT,
+        action: (): void => {
+          this.deleteRecord(recordId);
+        }
+      }
+    });
+  }
+
+  private async deleteLegacyHistory(index: number): Promise<void> {
+    try {
+      const next: ReadingCollections = await this.appDataService.removeLegacyRecord(index);
+      this.records = next.records;
+      this.history = next.history;
+      this.storageError = false;
+    } catch {
+      this.storageError = true;
+    }
+  }
+
+  private confirmDeleteLegacyHistory(index: number): void {
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.delete_record_title'),
+      message: $r('app.string.delete_record_message'),
+      primaryButton: {
+        value: $r('app.string.cancel_action'),
+        action: (): void => {
+        }
+      },
+      secondaryButton: {
+        value: $r('app.string.delete_action'),
+        fontColor: DesignTokens.ERROR_TEXT,
+        action: (): void => {
+          this.deleteLegacyHistory(index);
+        }
+      }
+    });
+  }
+
+  private async clearRecords(): Promise<void> {
+    try {
+      const cleared: ReadingCollections = await this.appDataService.clearRecords();
+      this.records = cleared.records;
+      this.history = cleared.history;
+      this.savedRecordId = '';
+      this.currentSaved = false;
+      this.storageError = false;
+    } catch {
+      this.storageError = true;
+    }
+  }
+
+  private confirmClearRecords(): void {
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.clear_records_title'),
+      message: $r('app.string.clear_records_message'),
+      primaryButton: {
+        value: $r('app.string.cancel_action'),
+        action: (): void => {
+        }
+      },
+      secondaryButton: {
+        value: $r('app.string.clear_action'),
+        fontColor: DesignTokens.ERROR_TEXT,
+        action: (): void => {
+          this.clearRecords();
+        }
+      }
+    });
+  }
+
+  private async clearAllLocalData(): Promise<void> {
+    try {
+      await this.appDataService.clearAll();
+      this.history = [];
+      this.records = [];
+      this.favorites = [];
+      this.notes = [];
+      this.reversalsEnabled = true;
+      this.soundEnabled = true;
+      this.hapticEnabled = true;
+      this.recentThemesEnabled = true;
+      this.currentTheme = 'moon_garden';
+      this.savedRecordId = '';
+      this.currentSaved = false;
+      this.storageError = false;
+    } catch {
+      this.storageError = true;
+    }
+  }
+
+  private confirmClearAllLocalData(): void {
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.clear_all_data_title'),
+      message: $r('app.string.clear_all_data_message'),
+      primaryButton: {
+        value: $r('app.string.cancel_action'),
+        action: (): void => {
+        }
+      },
+      secondaryButton: {
+        value: $r('app.string.clear_action'),
+        fontColor: DesignTokens.ERROR_TEXT,
+        action: (): void => {
+          this.clearAllLocalData();
+        }
+      }
     });
   }
 
@@ -313,6 +513,19 @@ struct Index {
     }
     .width('100%')
     .height(58)
+  }
+
+  @Builder
+  StorageErrorNotice() {
+    if (this.storageError) {
+      Text($r('app.string.storage_error'))
+        .width('100%')
+        .padding(12)
+        .fontSize(13)
+        .fontColor(DesignTokens.ERROR_TEXT)
+        .backgroundColor(DesignTokens.SURFACE)
+        .borderRadius(8)
+    }
   }
 
   @Builder
@@ -646,6 +859,7 @@ struct Index {
     Scroll() {
       Column({ space: 14 }) {
         this.Header(this.drawn.length > 1 ? $r('app.string.three_result_title') : $r('app.string.single_result_title'), true)
+        this.StorageErrorNotice()
         if (this.question.trim().length > 0) {
           Text(`"${this.question}"`)
             .fontSize(13)
@@ -714,9 +928,21 @@ struct Index {
             .backgroundColor(DesignTokens.SURFACE)
             .border({ width: 1, color: DesignTokens.PURPLE })
             .borderRadius(24)
+            .enabled(!this.saveInProgress)
             .onClick((): void => this.addClarification())
         }
-        this.GoldButton(this.currentSaved ? $r('app.string.saved_to_history') : $r('app.string.save_to_history'), (): void => this.saveCurrent())
+        Button(this.currentSaved ? $r('app.string.saved_to_history') : $r('app.string.save_to_history'))
+          .width('100%')
+          .height(50)
+          .fontSize(16)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(DesignTokens.TEXT_ON_GOLD)
+          .backgroundColor(DesignTokens.GOLD_LIGHT)
+          .borderRadius(14)
+          .enabled(!this.saveInProgress && !this.currentSaved)
+          .onClick((): void => {
+            this.saveCurrent();
+          })
         Button($r('app.string.draw_again'))
           .width('100%')
           .height(48)
@@ -756,6 +982,7 @@ struct Index {
     } else {
       Column({ space: 10 }) {
         this.Header($r('app.string.catalog'))
+        this.StorageErrorNotice()
         TextInput({ text: this.searchText, placeholder: $r('app.string.search_placeholder') })
           .height(44)
           .fontColor(DesignTokens.TEXT)
@@ -824,6 +1051,7 @@ struct Index {
     Scroll() {
       Column({ space: 14 }) {
         this.Header($r('app.string.card_detail_title'), true)
+        this.StorageErrorNotice()
         Image(tarotThemeMedia(this.currentTheme, this.selectedCardId))
           .width(220)
           .height(330)
@@ -899,6 +1127,17 @@ struct Index {
   HistoryPage() {
     Column({ space: 14 }) {
       this.Header($r('app.string.history_title'))
+      this.StorageErrorNotice()
+      if (this.history.length > 0 || this.records.length > 0) {
+        Button($r('app.string.clear_records_action'))
+          .width('100%')
+          .height(48)
+          .fontColor(DesignTokens.ERROR_TEXT)
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: DesignTokens.ERROR_TEXT })
+          .borderRadius(14)
+          .onClick((): void => this.confirmClearRecords())
+      }
       if (this.history.length === 0 && this.records.length === 0) {
         Blank()
         Image($r('app.media.card_placeholder'))
@@ -938,6 +1177,12 @@ struct Index {
                 }
                 .layoutWeight(1)
                 .alignItems(HorizontalAlign.Start)
+                Button($r('app.string.delete_action'))
+                  .height(48)
+                  .fontSize(13)
+                  .fontColor(DesignTokens.ERROR_TEXT)
+                  .backgroundColor(Color.Transparent)
+                  .onClick((): void => this.confirmDeleteRecord(record.id))
               }
               .width('100%')
               .padding(12)
@@ -961,6 +1206,12 @@ struct Index {
                 }
                 .layoutWeight(1)
                 .alignItems(HorizontalAlign.Start)
+                Button($r('app.string.delete_action'))
+                  .height(48)
+                  .fontSize(13)
+                  .fontColor(DesignTokens.ERROR_TEXT)
+                  .backgroundColor(Color.Transparent)
+                  .onClick((): void => this.confirmDeleteLegacyHistory(index))
               }
               .width('100%')
               .padding(12)
@@ -981,6 +1232,7 @@ struct Index {
     Scroll() {
       Column({ space: 12 }) {
         this.Header($r('app.string.settings_title'))
+        this.StorageErrorNotice()
         Text($r('app.string.theme_section_title'))
           .width('100%')
           .fontSize(18)
@@ -991,28 +1243,28 @@ struct Index {
         }
         .width('100%')
         this.SettingRow($r('app.string.setting_reversals'), $r('app.string.setting_reversals_desc'), this.reversalsEnabled, (value: boolean): void => {
-          this.reversalsEnabled = value;
-          this.localStore.saveBoolean('reversals', value).catch((): void => {
-          });
+          this.saveBooleanSetting('reversals', value);
         })
         this.SettingRow($r('app.string.setting_sound'), $r('app.string.setting_sound_desc'), this.soundEnabled, (value: boolean): void => {
-          this.soundEnabled = value;
-          this.localStore.saveBoolean('sound', value).catch((): void => {
-          });
+          this.saveBooleanSetting('sound', value);
         })
         this.SettingRow($r('app.string.setting_haptic'), $r('app.string.setting_haptic_desc'), this.hapticEnabled, (value: boolean): void => {
-          this.hapticEnabled = value;
-          this.localStore.saveBoolean('haptic', value).catch((): void => {
-          });
+          this.saveBooleanSetting('haptic', value);
         })
         this.SettingRow($r('app.string.setting_themes'), $r('app.string.setting_themes_desc'), this.recentThemesEnabled, (value: boolean): void => {
-          this.recentThemesEnabled = value;
-          this.localStore.saveBoolean('recentThemes', value).catch((): void => {
-          });
+          this.saveBooleanSetting('recentThemes', value);
         })
         this.ResultSection($r('app.string.privacy_section'), $r('app.string.privacy_desc'))
         this.ResultSection($r('app.string.usage_section'), $r('app.string.usage_desc'))
         this.ResultSection($r('app.string.about_section'), $r('app.string.about_desc'))
+        Button($r('app.string.clear_all_data_action'))
+          .width('100%')
+          .height(50)
+          .fontColor(DesignTokens.ERROR_TEXT)
+          .backgroundColor(Color.Transparent)
+          .border({ width: 1, color: DesignTokens.ERROR_TEXT })
+          .borderRadius(14)
+          .onClick((): void => this.confirmClearAllLocalData())
       }
       .padding({ left: 16, right: 16, bottom: 24 })
     }
@@ -1044,9 +1296,7 @@ struct Index {
     .borderRadius(16)
     .border({ width: themeId === this.currentTheme ? 2 : 1, color: themeId === this.currentTheme ? DesignTokens.PURPLE : DesignTokens.PURPLE_BORDER })
     .onClick((): void => {
-      this.currentTheme = themeId;
-      this.localStore.saveTheme(themeId).catch((): void => {
-      });
+      this.selectTheme(themeId);
     })
   }
 

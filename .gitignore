@@ -3,6 +3,7 @@ oh_modules/
 entry/.preview/
 entry/.test/
 entry/build/
+.tmp-device/
 .idea/
 local.properties
 *.hap

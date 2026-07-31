@@ -1,34 +1,41 @@
 import { common } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
-import { LocalDataCodec, StoredCardNote, StoredReadingRecord } from './LocalDataCodec';
+import {
+  LocalDataCodec,
+  StoredCardNote,
+  StoredReadingCollections,
+  StoredReadingRecord
+} from './LocalDataCodec';
 import { TarotThemeId } from '../models/TarotModels';
+import { AppDataRepository, StoredAppData } from './AppDataRepository';
 
-export interface StoredAppData {
-  history: string[];
-  favorites: string[];
-  notes: StoredCardNote[];
-  reversalsEnabled: boolean;
-  soundEnabled: boolean;
-  hapticEnabled: boolean;
-  recentThemesEnabled: boolean;
-  themeId: TarotThemeId;
-  records: StoredReadingRecord[];
-}
-
-export class LocalAppStore {
+export class LocalAppStore implements AppDataRepository {
   private store: preferences.Preferences | null = null;
+  private ready: Promise<void> | null = null;
 
   async initialize(context: common.Context): Promise<void> {
+    if (this.ready === null) {
+      this.ready = this.open(context);
+    }
     try {
-      this.store = await preferences.getPreferences(context, 'tarot_inspiration_local_v1');
+      await this.ready;
     } catch {
+      this.ready = null;
       this.store = null;
+      throw new Error('Local preferences initialization failed.');
     }
   }
 
+  private async open(context: common.Context): Promise<void> {
+    this.store = await preferences.getPreferences(context, 'tarot_inspiration_local_v1');
+  }
+
   async load(): Promise<StoredAppData> {
+    if (this.ready !== null) {
+      await this.ready;
+    }
     if (this.store === null) {
-      return this.defaults();
+      throw new Error('Local preferences are unavailable.');
     }
     let historyValue: preferences.ValueType = '';
     let favoritesValue: preferences.ValueType = '';
@@ -39,23 +46,29 @@ export class LocalAppStore {
     let recentValue: preferences.ValueType = true;
     let themeValue: preferences.ValueType = 'moon_garden';
     let recordsValue: preferences.ValueType = '';
-    try {
-      historyValue = await this.store.get('history', '');
-      favoritesValue = await this.store.get('favorites', '');
-      notesValue = await this.store.get('notes', '');
-      reversalsValue = await this.store.get('reversals', true);
-      soundValue = await this.store.get('sound', true);
-      hapticValue = await this.store.get('haptic', true);
-      recentValue = await this.store.get('recentThemes', true);
-      themeValue = await this.store.get('themeId', 'moon_garden');
-      recordsValue = await this.store.get('readingRecordsV2', '');
-    } catch {
-      return this.defaults();
-    }
+    let collectionsValue: preferences.ValueType = '';
+    historyValue = await this.store.get('history', '');
+    favoritesValue = await this.store.get('favorites', '');
+    notesValue = await this.store.get('notes', '');
+    reversalsValue = await this.store.get('reversals', true);
+    soundValue = await this.store.get('sound', true);
+    hapticValue = await this.store.get('haptic', true);
+    recentValue = await this.store.get('recentThemes', true);
+    themeValue = await this.store.get('themeId', 'moon_garden');
+    recordsValue = await this.store.get('readingRecordsV2', '');
+    collectionsValue = await this.store.get('readingCollectionsV1', '');
+    const collectionsText: string = typeof collectionsValue === 'string' ? collectionsValue : '';
+    const legacyHistory: string[] = LocalDataCodec.decodeHistory(
+      typeof historyValue === 'string' ? historyValue : ''
+    );
+    const legacyRecords: StoredReadingRecord[] = LocalDataCodec.decodeRecords(
+      typeof recordsValue === 'string' ? recordsValue : ''
+    );
+    const collections: StoredReadingCollections = collectionsText.length > 0 ?
+      LocalDataCodec.decodeReadingCollections(collectionsText) :
+      { records: legacyRecords, history: legacyHistory };
     return {
-      history: LocalDataCodec.decodeHistory(
-        typeof historyValue === 'string' ? historyValue : ''
-      ),
+      history: collections.history,
       favorites: LocalDataCodec.decodeFavorites(
         typeof favoritesValue === 'string' ? favoritesValue : ''
       ),
@@ -67,12 +80,8 @@ export class LocalAppStore {
       hapticEnabled: typeof hapticValue === 'boolean' ? hapticValue : true,
       recentThemesEnabled: typeof recentValue === 'boolean' ? recentValue : true,
       themeId: themeValue === 'stained_glass' ? 'stained_glass' : 'moon_garden',
-      records: LocalDataCodec.decodeRecords(typeof recordsValue === 'string' ? recordsValue : '')
+      records: collections.records
     };
-  }
-
-  async saveHistory(history: string[]): Promise<void> {
-    await this.put('history', LocalDataCodec.encodeHistory(history));
   }
 
   async saveFavorites(cardIds: string[]): Promise<void> {
@@ -91,32 +100,38 @@ export class LocalAppStore {
     await this.put('themeId', themeId);
   }
 
-  async saveRecords(records: StoredReadingRecord[]): Promise<void> {
-    await this.put('readingRecordsV2', LocalDataCodec.encodeRecords(records));
+  async saveRecordCollections(records: StoredReadingRecord[], history: string[]): Promise<void> {
+    if (this.ready !== null) {
+      await this.ready;
+    }
+    if (this.store === null) {
+      throw new Error('Local preferences are unavailable.');
+    }
+    const collections: StoredReadingCollections = { records, history };
+    await this.store.put('readingCollectionsV1', LocalDataCodec.encodeReadingCollections(collections));
+    await this.store.flush();
+  }
+
+  async clearAll(): Promise<void> {
+    if (this.ready !== null) {
+      await this.ready;
+    }
+    if (this.store === null) {
+      throw new Error('Local preferences are unavailable.');
+    }
+    await this.store.clear();
+    await this.store.flush();
   }
 
   private async put(key: string, value: preferences.ValueType): Promise<void> {
+    if (this.ready !== null) {
+      await this.ready;
+    }
     if (this.store === null) {
-      return;
+      throw new Error('Local preferences are unavailable.');
     }
-    try {
-      await this.store.put(key, value);
-      await this.store.flush();
-    } catch {
-    }
+    await this.store.put(key, value);
+    await this.store.flush();
   }
 
-  private defaults(): StoredAppData {
-    return {
-      history: [],
-      favorites: [],
-      notes: [],
-      reversalsEnabled: true,
-      soundEnabled: true,
-      hapticEnabled: true,
-      recentThemesEnabled: true,
-      themeId: 'moon_garden',
-      records: []
-    };
-  }
 }
