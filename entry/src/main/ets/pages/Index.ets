@@ -1,19 +1,22 @@
 import { common } from '@kit.AbilityKit';
 import { TAROT_CARDS } from '../common/TarotCatalogData';
 import { DesignTokens } from '../common/DesignTokens';
-import { tarotMedia } from '../common/TarotMedia';
+import { tarotThemeBack, tarotThemeMedia } from '../common/TarotThemeMedia';
 import {
   DrawnCard,
+  ReadingDepth,
+  ReadingScene,
   ReadingContext,
   ReadingResult,
   TarotCard
 } from '../models/TarotModels';
+import { TarotThemeId } from '../models/TarotModels';
 import { DrawService } from '../services/DrawService';
 import { InterpretationService } from '../services/InterpretationService';
 import { LocalAppStore, StoredAppData } from '../repositories/LocalAppStore';
-import { StoredCardNote } from '../repositories/LocalDataCodec';
+import { StoredCardNote, StoredReadingRecord } from '../repositories/LocalDataCodec';
 import { QuestionClassifier } from '../services/QuestionClassifier';
-import { XiaoYiEnhancement } from '../components/XiaoYiEnhancement';
+import { SpreadService } from '../services/SpreadService';
 
 // Mood options — label resource paired with internal value.
 const MOOD_OPTIONS: [Resource, string][] = [
@@ -22,6 +25,15 @@ const MOOD_OPTIONS: [Resource, string][] = [
   [$r('app.string.mood_nervous'), '紧张'],
   [$r('app.string.mood_confused'), '困惑'],
   [$r('app.string.mood_low'), '低落'],
+];
+
+const SCENE_OPTIONS: [Resource, ReadingScene][] = [
+  [$r('app.string.scene_study'), 'study'],
+  [$r('app.string.scene_career'), 'career'],
+  [$r('app.string.scene_relationship'), 'relationship'],
+  [$r('app.string.scene_social'), 'social'],
+  [$r('app.string.scene_growth'), 'growth'],
+  [$r('app.string.scene_daily'), 'daily'],
 ];
 
 // Catalog filter tabs — [category key, label resource].
@@ -43,6 +55,7 @@ struct Index {
   @State question: string = '';
   @State mood: string = '';
   @State drawn: DrawnCard[] = [];
+  @State clarifications: DrawnCard[] = [];
   @State summary: string = '';
   @State connection: string = '';
   @State actionText: string = '';
@@ -59,6 +72,11 @@ struct Index {
   @State soundEnabled: boolean = true;
   @State hapticEnabled: boolean = true;
   @State recentThemesEnabled: boolean = true;
+  @State currentTheme: TarotThemeId = 'moon_garden';
+  @State records: StoredReadingRecord[] = [];
+  @State currentSaved: boolean = false;
+  @State readingScene: ReadingScene = 'growth';
+  @State readingDepth: ReadingDepth = 'concise';
   private localStore: LocalAppStore = new LocalAppStore();
 
   async aboutToAppear(): Promise<void> {
@@ -76,6 +94,8 @@ struct Index {
       this.soundEnabled = data.soundEnabled;
       this.hapticEnabled = data.hapticEnabled;
       this.recentThemesEnabled = data.recentThemesEnabled;
+      this.currentTheme = data.themeId;
+      this.records = data.records;
     } catch {
     }
   }
@@ -154,13 +174,22 @@ struct Index {
   private chooseSpread(spread: string): void {
     this.spread = spread;
     this.question = '';
-    this.page = spread === 'daily' ? 'shuffle' : 'question';
+    this.page = 'question';
+  }
+
+  private confirmSpread(spread: string): void {
+    this.spread = spread;
+    this.page = 'shuffle';
   }
 
   private completeDraw(): void {
     const ids: string[] = TAROT_CARDS.map((card: TarotCard): string => card.id);
-    if (this.spread === 'three') {
-      this.drawn = DrawService.drawThree(ids, this.reversalsEnabled);
+    if (this.spread === 'timeline' || this.spread === 'three') {
+      this.drawn = DrawService.drawSpread(ids, SpreadService.byId('timeline').positions, this.reversalsEnabled);
+    } else if (this.spread === 'relationship') {
+      this.drawn = DrawService.drawSpread(ids, SpreadService.byId('relationship').positions, this.reversalsEnabled);
+    } else if (this.spread === 'seven') {
+      this.drawn = DrawService.drawSpread(ids, SpreadService.byId('seven').positions, this.reversalsEnabled);
     } else if (this.spread === 'daily') {
       const now: Date = new Date();
       const key: string =
@@ -169,12 +198,21 @@ struct Index {
     } else {
       this.drawn = [DrawService.drawSingle(ids, this.reversalsEnabled)];
     }
+    this.clarifications = [];
+    this.currentSaved = false;
+    this.updateReading(this.drawn);
+    this.page = 'result';
+  }
+
+  private updateReading(cards: DrawnCard[]): void {
     const context: ReadingContext = {
       question: this.question,
       category: QuestionClassifier.classify(this.question),
       mood: this.mood,
       recentThemes: this.deriveRecentThemes(),
-      cards: this.drawn
+      cards,
+      scene: this.readingScene,
+      depth: this.readingDepth
     };
     const result: ReadingResult = InterpretationService.build(context, TAROT_CARDS);
     this.summary = result.summary;
@@ -182,16 +220,51 @@ struct Index {
     this.actionText = result.action;
     this.reflection = result.reflection;
     this.safetyNotice = result.safetyNotice ?? '';
-    this.page = 'result';
+  }
+
+  private addClarification(): void {
+    if (this.clarifications.length >= 3) {
+      return;
+    }
+    const ids: string[] = TAROT_CARDS.map((card: TarotCard): string => card.id);
+    const excluded: string[] = this.drawn.concat(this.clarifications)
+      .map((draw: DrawnCard): string => draw.cardId);
+    const next: DrawnCard[] = DrawService.drawClarifications(
+      ids,
+      excluded,
+      1,
+      this.reversalsEnabled
+    );
+    if (next.length === 0) {
+      return;
+    }
+    const clarification: DrawnCard = {
+      cardId: next[0].cardId,
+      orientation: next[0].orientation,
+      position: `澄清 ${this.clarifications.length + 1}`
+    };
+    this.clarifications = this.clarifications.concat([clarification]);
+    this.updateReading(this.drawn.concat(this.clarifications));
   }
 
   private saveCurrent(): void {
-    const names: string = this.drawn
-      .map((draw: DrawnCard): string => this.cardById(draw.cardId).nameZhCn)
-      .join(' · ');
-    const title: string = `${this.spread === 'three' ? '三牌阵' : '单牌'} · ${names}`;
-    this.history = [title].concat(this.history);
-    this.localStore.saveHistory(this.history).catch((): void => {
+    if (this.currentSaved) {
+      return;
+    }
+    const record: StoredReadingRecord = {
+      id: `reading-${Date.now()}`,
+      createdAt: Date.now(),
+      question: this.question,
+      scene: this.readingScene,
+      depth: this.readingDepth,
+      spreadType: this.spread,
+      themeId: this.currentTheme,
+      cards: this.drawn.concat(this.clarifications),
+      summary: this.summary
+    };
+    this.records = [record].concat(this.records);
+    this.currentSaved = true;
+    this.localStore.saveRecords(this.records).catch((): void => {
     });
   }
 
@@ -259,9 +332,10 @@ struct Index {
   NavBar() {
     Row() {
       this.NavItem($r('app.string.nav_home_icon'), $r('app.string.nav_home'), 'home')
-      this.NavItem($r('app.string.nav_draw_icon'), $r('app.string.nav_draw'), 'drawMode')
+      this.NavItem($r('app.string.nav_draw_icon'), $r('app.string.nav_draw'), 'question')
       this.NavItem($r('app.string.nav_catalog_icon'), $r('app.string.nav_catalog'), 'catalog')
       this.NavItem($r('app.string.nav_history_icon'), $r('app.string.nav_history'), 'history')
+      this.NavItem($r('app.string.nav_profile_icon'), $r('app.string.nav_profile'), 'settings')
     }
     .width('100%')
     .height(66)
@@ -313,7 +387,7 @@ struct Index {
           Text($r('app.string.daily_draw_hint'))
             .fontSize(13)
             .fontColor(DesignTokens.TEXT_SECONDARY)
-          Image($r('app.media.card_back'))
+          Image(tarotThemeBack(this.currentTheme))
             .width(132)
             .height(198)
             .objectFit(ImageFit.Cover)
@@ -393,17 +467,20 @@ struct Index {
 
   @Builder
   DrawModePage() {
-    Column({ space: 18 }) {
-      this.Header($r('app.string.choose_spread'), true)
-      Text($r('app.string.choose_spread_hint'))
-        .fontSize(14)
-        .fontColor(DesignTokens.TEXT_SECONDARY)
-      this.SpreadCard('✧', $r('app.string.single_card'), $r('app.string.single_card_spread_desc'), 'single')
-      this.SpreadCard('♢', $r('app.string.three_card_spread'), $r('app.string.three_card_spread_desc'), 'three')
-      this.SpreadCard('☾', $r('app.string.daily_spread_label'), $r('app.string.daily_spread_desc'), 'daily')
+    Scroll() {
+      Column({ space: 14 }) {
+        this.Header($r('app.string.choose_spread'), true)
+        Text($r('app.string.choose_spread_hint'))
+          .fontSize(14)
+          .fontColor(DesignTokens.TEXT_SECONDARY)
+        this.SpreadCard('✧', $r('app.string.single_card'), $r('app.string.single_card_spread_desc'), 'single')
+        this.SpreadCard('♢', $r('app.string.timeline_spread'), $r('app.string.timeline_spread_desc'), 'timeline')
+        this.SpreadCard('☾', $r('app.string.relationship_spread'), $r('app.string.relationship_spread_desc'), 'relationship')
+        this.SpreadCard('✦', $r('app.string.seven_spread'), $r('app.string.seven_spread_desc'), 'seven')
+      }
+      .padding({ left: 16, right: 16, bottom: 24 })
     }
     .layoutWeight(1)
-    .padding({ left: 16, right: 16 })
   }
 
   @Builder
@@ -424,7 +501,7 @@ struct Index {
     .backgroundColor(DesignTokens.CARD)
     .borderRadius(16)
     .border({ width: 1, color: DesignTokens.PURPLE_BORDER_LIGHT })
-    .onClick((): void => this.chooseSpread(spread))
+    .onClick((): void => this.confirmSpread(spread))
   }
 
   @Builder
@@ -442,15 +519,40 @@ struct Index {
           .backgroundColor(DesignTokens.SURFACE)
           .borderRadius(14)
           .padding(14)
-          .maxLength(120)
+          .maxLength(300)
           .onChange((value: string): void => {
             this.question = value;
           })
-        Text(`${this.question.length}/120`)
+        Text(`${this.question.length}/300`)
           .width('100%')
           .textAlign(TextAlign.End)
           .fontSize(12)
           .fontColor(DesignTokens.TEXT_SECONDARY)
+        Text($r('app.string.scene_label'))
+          .width('100%')
+          .fontSize(16)
+          .fontColor(DesignTokens.TEXT)
+        Row({ space: 8 }) {
+          ForEach(SCENE_OPTIONS.slice(0, 3), (item: [Resource, ReadingScene]) => {
+            this.SceneChip(item[0], item[1])
+          })
+        }
+        .width('100%')
+        Row({ space: 8 }) {
+          ForEach(SCENE_OPTIONS.slice(3), (item: [Resource, ReadingScene]) => {
+            this.SceneChip(item[0], item[1])
+          })
+        }
+        .width('100%')
+        Text($r('app.string.depth_label'))
+          .width('100%')
+          .fontSize(16)
+          .fontColor(DesignTokens.TEXT)
+        Row({ space: 8 }) {
+          this.DepthChip($r('app.string.depth_concise'), 'concise')
+          this.DepthChip($r('app.string.depth_deep'), 'deep')
+        }
+        .width('100%')
         Text($r('app.string.mood_label'))
           .width('100%')
           .fontSize(16)
@@ -470,12 +572,40 @@ struct Index {
           })
         }
         this.GoldButton(this.question.trim().length > 0 ? $r('app.string.next_step') : $r('app.string.skip_to_draw'), (): void => {
-          this.page = 'shuffle';
+          this.page = 'drawMode';
         })
       }
       .padding({ left: 16, right: 16, bottom: 24 })
     }
     .layoutWeight(1)
+  }
+
+  @Builder
+  SceneChip(label: ResourceStr, value: ReadingScene) {
+    Button(label)
+      .layoutWeight(1)
+      .height(40)
+      .fontSize(12)
+      .fontColor(this.readingScene === value ? DesignTokens.TEXT_ON_GOLD : DesignTokens.TEXT_SECONDARY)
+      .backgroundColor(this.readingScene === value ? DesignTokens.PURPLE : DesignTokens.CARD)
+      .borderRadius(20)
+      .onClick((): void => {
+        this.readingScene = value;
+      })
+  }
+
+  @Builder
+  DepthChip(label: ResourceStr, value: ReadingDepth) {
+    Button(label)
+      .layoutWeight(1)
+      .height(42)
+      .fontSize(13)
+      .fontColor(this.readingDepth === value ? DesignTokens.TEXT_ON_GOLD : DesignTokens.TEXT_SECONDARY)
+      .backgroundColor(this.readingDepth === value ? DesignTokens.PURPLE : DesignTokens.CARD)
+      .borderRadius(21)
+      .onClick((): void => {
+        this.readingDepth = value;
+      })
   }
 
   @Builder
@@ -487,13 +617,13 @@ struct Index {
         .fontSize(18)
         .fontColor(DesignTokens.TEXT)
       Stack() {
-        Image($r('app.media.card_back'))
+        Image(tarotThemeBack(this.currentTheme))
           .width(156)
           .height(234)
           .objectFit(ImageFit.Cover)
           .borderRadius(14)
           .rotate({ angle: -8 })
-        Image($r('app.media.card_back'))
+        Image(tarotThemeBack(this.currentTheme))
           .width(156)
           .height(234)
           .objectFit(ImageFit.Cover)
@@ -503,7 +633,7 @@ struct Index {
       }
       .height(265)
       Blank()
-      this.GoldButton(this.spread === 'three' ? $r('app.string.draw_three_btn') : $r('app.string.draw_one_card_btn'), (): void => {
+      this.GoldButton($r('app.string.confirm_draw_btn'), (): void => {
         this.completeDraw();
       })
     }
@@ -515,19 +645,19 @@ struct Index {
   ResultPage() {
     Scroll() {
       Column({ space: 14 }) {
-        this.Header(this.spread === 'three' ? $r('app.string.three_result_title') : $r('app.string.single_result_title'), true)
+        this.Header(this.drawn.length > 1 ? $r('app.string.three_result_title') : $r('app.string.single_result_title'), true)
         if (this.question.trim().length > 0) {
           Text(`"${this.question}"`)
             .fontSize(13)
             .fontColor(DesignTokens.TEXT_SECONDARY)
             .textAlign(TextAlign.Center)
         }
-        Row({ space: 10 }) {
+        Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
           ForEach(this.drawn, (draw: DrawnCard) => {
             Column({ space: 6 }) {
-              Image(tarotMedia(draw.cardId))
-                .width(this.drawn.length === 3 ? 98 : 190)
-                .height(this.drawn.length === 3 ? 147 : 285)
+              Image(tarotThemeMedia(this.currentTheme, draw.cardId))
+                .width(this.drawn.length === 1 ? 190 : this.drawn.length <= 3 ? 98 : 72)
+                .height(this.drawn.length === 1 ? 285 : this.drawn.length <= 3 ? 147 : 108)
                 .objectFit(ImageFit.Cover)
                 .borderRadius(10)
                 .rotate({ angle: draw.orientation === 'reversed' ? 180 : 0 })
@@ -541,11 +671,11 @@ struct Index {
                 .fontSize(11)
                 .fontColor(DesignTokens.TEXT_SECONDARY)
             }
-            .layoutWeight(1)
+            .width(this.drawn.length === 1 ? 210 : this.drawn.length <= 3 ? 108 : 82)
+            .margin({ bottom: 10 })
           }, (draw: DrawnCard): string => `${draw.cardId}-${draw.position}`)
         }
         .width('100%')
-        .justifyContent(FlexAlign.Center)
         this.ResultSection($r('app.string.section_inspiration'), this.summary)
         if (this.connection.length > 0) {
           this.ResultSection($r('app.string.section_connection'), this.connection)
@@ -555,10 +685,38 @@ struct Index {
         if (this.safetyNotice.length > 0) {
           this.ResultSection($r('app.string.section_safety'), this.safetyNotice)
         }
-        XiaoYiEnhancement({
-          queryText: `${this.question.length > 0 ? this.question : this.getResourceString($r('app.string.xiao_yi_fallback_query'))} · ${this.drawn.map((draw: DrawnCard): string => this.cardById(draw.cardId).nameZhCn).join('、')}`
-        })
-        this.GoldButton($r('app.string.save_to_history'), (): void => this.saveCurrent())
+        if (this.clarifications.length > 0) {
+          Text($r('app.string.clarification_title'))
+            .width('100%')
+            .fontSize(17)
+            .fontColor(DesignTokens.TEXT)
+          Row({ space: 10 }) {
+            ForEach(this.clarifications, (draw: DrawnCard) => {
+              Column({ space: 5 }) {
+                Image(tarotThemeMedia(this.currentTheme, draw.cardId))
+                  .width(82)
+                  .height(123)
+                  .objectFit(ImageFit.Cover)
+                  .borderRadius(8)
+                  .rotate({ angle: draw.orientation === 'reversed' ? 180 : 0 })
+                Text(draw.position).fontSize(11).fontColor(DesignTokens.TEXT_SECONDARY)
+              }
+            }, (draw: DrawnCard): string => draw.position)
+          }
+          .width('100%')
+          .justifyContent(FlexAlign.Center)
+        }
+        if (this.clarifications.length < 3) {
+          Button($r('app.string.add_clarification'))
+            .width('100%')
+            .height(48)
+            .fontColor(DesignTokens.PURPLE)
+            .backgroundColor(DesignTokens.SURFACE)
+            .border({ width: 1, color: DesignTokens.PURPLE })
+            .borderRadius(24)
+            .onClick((): void => this.addClarification())
+        }
+        this.GoldButton(this.currentSaved ? $r('app.string.saved_to_history') : $r('app.string.save_to_history'), (): void => this.saveCurrent())
         Button($r('app.string.draw_again'))
           .width('100%')
           .height(48)
@@ -576,7 +734,7 @@ struct Index {
   }
 
   @Builder
-  ResultSection(title: ResourceStr, content: string) {
+  ResultSection(title: ResourceStr, content: ResourceStr) {
     Column({ space: 8 }) {
       Text(title).fontSize(17).fontColor(DesignTokens.GOLD_LIGHT)
       Text(content)
@@ -628,7 +786,7 @@ struct Index {
           ForEach(this.filteredCards(), (card: TarotCard) => {
             GridItem() {
               Column({ space: 6 }) {
-                Image(tarotMedia(card.id))
+                Image(tarotThemeMedia(this.currentTheme, card.id))
                   .width('100%')
                   .aspectRatio(0.667)
                   .objectFit(ImageFit.Cover)
@@ -666,7 +824,7 @@ struct Index {
     Scroll() {
       Column({ space: 14 }) {
         this.Header($r('app.string.card_detail_title'), true)
-        Image(tarotMedia(this.selectedCardId))
+        Image(tarotThemeMedia(this.currentTheme, this.selectedCardId))
           .width(220)
           .height(330)
           .objectFit(ImageFit.Cover)
@@ -741,7 +899,7 @@ struct Index {
   HistoryPage() {
     Column({ space: 14 }) {
       this.Header($r('app.string.history_title'))
-      if (this.history.length === 0) {
+      if (this.history.length === 0 && this.records.length === 0) {
         Blank()
         Image($r('app.media.card_placeholder'))
           .width(148)
@@ -758,10 +916,39 @@ struct Index {
         Blank()
       } else {
         List({ space: 10 }) {
+          ForEach(this.records, (record: StoredReadingRecord) => {
+            ListItem() {
+              Row({ space: 12 }) {
+                Image(tarotThemeMedia(record.themeId, record.cards[0].cardId))
+                  .width(48)
+                  .height(72)
+                  .objectFit(ImageFit.Cover)
+                  .borderRadius(6)
+                  .rotate({ angle: record.cards[0].orientation === 'reversed' ? 180 : 0 })
+                Column({ space: 6 }) {
+                  if (record.question.length > 0) {
+                    Text(record.question).fontSize(15).fontColor(DesignTokens.TEXT).maxLines(2)
+                  } else {
+                    Text($r('app.string.untitled_reading')).fontSize(15).fontColor(DesignTokens.TEXT)
+                  }
+                  Text(record.cards.map((card: DrawnCard): string => this.cardById(card.cardId).nameZhCn).join(' · '))
+                    .fontSize(12)
+                    .fontColor(DesignTokens.TEXT_SECONDARY)
+                    .maxLines(1)
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+              }
+              .width('100%')
+              .padding(12)
+              .backgroundColor(DesignTokens.SURFACE)
+              .borderRadius(12)
+            }
+          }, (record: StoredReadingRecord): string => record.id)
           ForEach(this.history, (item: string, index: number) => {
             ListItem() {
               Row({ space: 12 }) {
-                Image($r('app.media.card_back'))
+                Image(tarotThemeBack(this.currentTheme))
                   .width(48)
                   .height(72)
                   .objectFit(ImageFit.Cover)
@@ -793,7 +980,16 @@ struct Index {
   SettingsPage() {
     Scroll() {
       Column({ space: 12 }) {
-        this.Header($r('app.string.settings_title'), true)
+        this.Header($r('app.string.settings_title'))
+        Text($r('app.string.theme_section_title'))
+          .width('100%')
+          .fontSize(18)
+          .fontColor(DesignTokens.TEXT)
+        Row({ space: 12 }) {
+          this.ThemeChoice('moon_garden', $r('app.string.theme_moon_garden'), $r('app.string.theme_moon_garden_desc'))
+          this.ThemeChoice('stained_glass', $r('app.string.theme_stained_glass'), $r('app.string.theme_stained_glass_desc'))
+        }
+        .width('100%')
         this.SettingRow($r('app.string.setting_reversals'), $r('app.string.setting_reversals_desc'), this.reversalsEnabled, (value: boolean): void => {
           this.reversalsEnabled = value;
           this.localStore.saveBoolean('reversals', value).catch((): void => {
@@ -814,13 +1010,44 @@ struct Index {
           this.localStore.saveBoolean('recentThemes', value).catch((): void => {
           });
         })
-        this.ResultSection($r('app.string.privacy_section'), this.getResourceString($r('app.string.privacy_desc')))
-        this.ResultSection($r('app.string.usage_section'), this.getResourceString($r('app.string.usage_desc')))
-        this.ResultSection($r('app.string.about_section'), this.getResourceString($r('app.string.about_desc')))
+        this.ResultSection($r('app.string.privacy_section'), $r('app.string.privacy_desc'))
+        this.ResultSection($r('app.string.usage_section'), $r('app.string.usage_desc'))
+        this.ResultSection($r('app.string.about_section'), $r('app.string.about_desc'))
       }
       .padding({ left: 16, right: 16, bottom: 24 })
     }
     .layoutWeight(1)
+  }
+
+  @Builder
+  ThemeChoice(themeId: TarotThemeId, title: ResourceStr, description: ResourceStr) {
+    Column({ space: 7 }) {
+      Image(tarotThemeBack(themeId))
+        .width(72)
+        .height(108)
+        .objectFit(ImageFit.Cover)
+        .borderRadius(8)
+      Text(title)
+        .fontSize(14)
+        .fontColor(DesignTokens.TEXT)
+      Text(description)
+        .fontSize(10)
+        .fontColor(DesignTokens.TEXT_SECONDARY)
+        .maxLines(2)
+        .textAlign(TextAlign.Center)
+    }
+    .layoutWeight(1)
+    .height(174)
+    .padding(10)
+    .justifyContent(FlexAlign.Center)
+    .backgroundColor(themeId === this.currentTheme ? DesignTokens.CARD : DesignTokens.SURFACE)
+    .borderRadius(16)
+    .border({ width: themeId === this.currentTheme ? 2 : 1, color: themeId === this.currentTheme ? DesignTokens.PURPLE : DesignTokens.PURPLE_BORDER })
+    .onClick((): void => {
+      this.currentTheme = themeId;
+      this.localStore.saveTheme(themeId).catch((): void => {
+      });
+    })
   }
 
   @Builder
@@ -867,7 +1094,7 @@ struct Index {
     Stack({ alignContent: Alignment.Top }) {
       Column() {
         this.CurrentPage()
-        if (this.page === 'home' || this.page === 'drawMode' || this.page === 'catalog' || this.page === 'history') {
+        if (this.page === 'home' || this.page === 'catalog' || this.page === 'history' || this.page === 'settings') {
           this.NavBar()
         }
       }
@@ -879,18 +1106,5 @@ struct Index {
     .width('100%')
     .height('100%')
     .backgroundColor(DesignTokens.OUTER_BG)
-  }
-
-  // Resolve a resource to a string at runtime. Used when a resource must be
-  // embedded inside a longer template literal like XiaoYi queryText.
-  private getResourceString(resource: Resource): string {
-    try {
-      const ctx: common.Context | undefined = this.getUIContext().getHostContext();
-      if (ctx !== undefined) {
-        return ctx.resourceManager.getStringSync(resource);
-      }
-    } catch {
-    }
-    return '塔罗灵感解读';
   }
 }

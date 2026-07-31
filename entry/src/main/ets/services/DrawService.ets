@@ -30,7 +30,22 @@ export class DrawService {
       throw new Error('三牌阵至少需要三张牌');
     }
     const available: string[] = cardIds.slice();
-    const positions: string[] = ['过去', '现在', '行动建议'];
+    return DrawService.drawSpread(cardIds, ['过去', '现在', '未来趋势'], reversalsEnabled, random);
+  }
+
+  static drawSpread(
+    cardIds: string[],
+    positions: string[],
+    reversalsEnabled: boolean,
+    random: () => number = Math.random
+  ): DrawnCard[] {
+    if (positions.length === 0) {
+      return [];
+    }
+    if (cardIds.length < positions.length) {
+      throw new Error('牌库数量少于牌阵所需数量');
+    }
+    const available: string[] = cardIds.slice();
     const result: DrawnCard[] = [];
     positions.forEach((position: string): void => {
       const index: number = Math.min(
@@ -45,6 +60,25 @@ export class DrawService {
       });
     });
     return result;
+  }
+
+  static drawClarifications(
+    cardIds: string[],
+    excludedCardIds: string[],
+    requestedCount: number,
+    reversalsEnabled: boolean,
+    random: () => number = Math.random
+  ): DrawnCard[] {
+    const count: number = Math.min(3, Math.max(0, requestedCount));
+    const available: string[] = cardIds.filter((cardId: string): boolean =>
+      !excludedCardIds.includes(cardId)
+    );
+    const positions: string[] = [];
+    const drawCount: number = Math.min(count, available.length);
+    for (let index: number = 0; index < drawCount; index++) {
+      positions.push(`澄清 ${index + 1}`);
+    }
+    return DrawService.drawSpread(available, positions, reversalsEnabled, random);
   }
 
   static dailyDraw(
@@ -87,4 +121,3 @@ export class DrawService {
     return hash >>> 0;
   }
 }
-

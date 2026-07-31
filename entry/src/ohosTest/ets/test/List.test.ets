@@ -4,6 +4,7 @@ import interpretationServiceTest from './InterpretationService.test';
 import localDataCodecTest from './LocalDataCodec.test';
 import questionClassifierTest from './QuestionClassifier.test';
 import safetyServiceTest from './SafetyService.test';
+import spreadServiceTest from './SpreadService.test';
 
 export default function testsuite(): void {
   appStateTest();
@@ -12,4 +13,5 @@ export default function testsuite(): void {
   safetyServiceTest();
   interpretationServiceTest();
   localDataCodecTest();
+  spreadServiceTest();
 }

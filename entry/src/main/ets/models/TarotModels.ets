@@ -8,6 +8,16 @@ export type QuestionCategory =
 
 export type Orientation = 'upright' | 'reversed';
 
+export type TarotThemeId = 'moon_garden' | 'stained_glass';
+
+export type SpreadType = 'single' | 'timeline' | 'relationship' | 'seven';
+
+export type ReadingDepth = 'concise' | 'deep';
+
+export type ReadingScene = 'study' | 'career' | 'relationship' | 'social' | 'growth' | 'daily';
+
+export type ReadingFlowStep = 'question' | 'spread' | 'draw' | 'confirm' | 'result';
+
 export interface TarotMeaningSide {
   keywords: string[];
   meaning: string;
@@ -42,6 +52,8 @@ export interface ReadingContext {
   mood?: string;
   recentThemes: string[];
   cards: DrawnCard[];
+  scene?: ReadingScene;
+  depth?: ReadingDepth;
 }
 
 export interface CardReadingSection {
@@ -62,4 +74,3 @@ export interface ReadingResult {
   safetyNotice?: string;
   algorithmVersion: number;
 }
-

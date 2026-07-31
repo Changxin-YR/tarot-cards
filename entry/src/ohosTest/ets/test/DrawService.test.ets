@@ -28,7 +28,7 @@ export default function drawServiceTest(): void {
       expect(new Set<string>(result.map((item: DrawnCard): string => item.cardId)).size).assertEqual(3);
       expect(result[0].position).assertEqual('过去');
       expect(result[1].position).assertEqual('现在');
-      expect(result[2].position).assertEqual('行动建议');
+      expect(result[2].position).assertEqual('未来趋势');
     });
 
     it('keepsDailyDrawStableForSameDate', 0, () => {
@@ -56,6 +56,34 @@ export default function drawServiceTest(): void {
 
       expect(result.orientation).assertEqual('upright');
     });
+
+    it('drawsSevenUniqueCardsWithProvidedPositions', 0, () => {
+      const positions: string[] = ['当前状态', '问题根源', '已知资源', '隐藏影响', '当前阻碍', '行动建议', '发展趋势'];
+      const result: DrawnCard[] = DrawService.drawSpread(
+        ['major-00', 'major-01', 'major-02', 'major-03', 'major-04', 'major-05', 'major-06'],
+        positions,
+        false,
+        (): number => 0
+      );
+
+      expect(result.length).assertEqual(7);
+      expect(new Set<string>(result.map((item: DrawnCard): string => item.cardId)).size).assertEqual(7);
+      expect(result[6].position).assertEqual('发展趋势');
+      expect(result.every((item: DrawnCard): boolean => item.orientation === 'upright')).assertTrue();
+    });
+
+    it('drawsClarificationCardsWithoutSessionDuplicates', 0, () => {
+      const result: DrawnCard[] = DrawService.drawClarifications(
+        ['major-00', 'major-01', 'major-02', 'major-03', 'major-04'],
+        ['major-00', 'major-01'],
+        3,
+        true,
+        (): number => 0
+      );
+
+      expect(result.length).assertEqual(3);
+      expect(result.some((item: DrawnCard): boolean => item.cardId === 'major-00')).assertFalse();
+      expect(result.some((item: DrawnCard): boolean => item.cardId === 'major-01')).assertFalse();
+    });
   });
 }
-

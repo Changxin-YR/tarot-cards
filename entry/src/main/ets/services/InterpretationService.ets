@@ -45,9 +45,9 @@ export class InterpretationService {
     const summary: string = SafetyService.soften(
       `围绕${categoryLabel}，${primaryCard.nameZhCn}邀请你先关注”${primarySide.keywords[0]}”。${moodText}${recentText}${supplementText}`
     );
-    const connection: string | undefined = sections.length === 3
+    const connection: string | undefined = sections.length > 1
       ? SafetyService.soften(
-        `三张牌从${sections[0].keywords[0]}走向${sections[1].keywords[0]}，并把可执行的焦点落在${sections[2].keywords[0]}。它们更像一条整理线索，而不是对未来的确定预测。`
+        `${sections.length}张牌从${sections[0].keywords[0]}逐步走向${sections[sections.length - 1].keywords[0]}。${context.depth === 'deep' ? '结合各个位置，它们提示你同时留意已知资源、隐藏影响与可执行步骤。' : ''}它们更像一条整理线索，而不是对未来的确定预测。`
       )
       : undefined;
     const notice: string = SafetyService.noticeFor(context.question);

@@ -1,6 +1,7 @@
 import { common } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
-import { LocalDataCodec, StoredCardNote } from './LocalDataCodec';
+import { LocalDataCodec, StoredCardNote, StoredReadingRecord } from './LocalDataCodec';
+import { TarotThemeId } from '../models/TarotModels';
 
 export interface StoredAppData {
   history: string[];
@@ -10,6 +11,8 @@ export interface StoredAppData {
   soundEnabled: boolean;
   hapticEnabled: boolean;
   recentThemesEnabled: boolean;
+  themeId: TarotThemeId;
+  records: StoredReadingRecord[];
 }
 
 export class LocalAppStore {
@@ -34,6 +37,8 @@ export class LocalAppStore {
     let soundValue: preferences.ValueType = true;
     let hapticValue: preferences.ValueType = true;
     let recentValue: preferences.ValueType = true;
+    let themeValue: preferences.ValueType = 'moon_garden';
+    let recordsValue: preferences.ValueType = '';
     try {
       historyValue = await this.store.get('history', '');
       favoritesValue = await this.store.get('favorites', '');
@@ -42,6 +47,8 @@ export class LocalAppStore {
       soundValue = await this.store.get('sound', true);
       hapticValue = await this.store.get('haptic', true);
       recentValue = await this.store.get('recentThemes', true);
+      themeValue = await this.store.get('themeId', 'moon_garden');
+      recordsValue = await this.store.get('readingRecordsV2', '');
     } catch {
       return this.defaults();
     }
@@ -58,7 +65,9 @@ export class LocalAppStore {
       reversalsEnabled: typeof reversalsValue === 'boolean' ? reversalsValue : true,
       soundEnabled: typeof soundValue === 'boolean' ? soundValue : true,
       hapticEnabled: typeof hapticValue === 'boolean' ? hapticValue : true,
-      recentThemesEnabled: typeof recentValue === 'boolean' ? recentValue : true
+      recentThemesEnabled: typeof recentValue === 'boolean' ? recentValue : true,
+      themeId: themeValue === 'stained_glass' ? 'stained_glass' : 'moon_garden',
+      records: LocalDataCodec.decodeRecords(typeof recordsValue === 'string' ? recordsValue : '')
     };
   }
 
@@ -76,6 +85,14 @@ export class LocalAppStore {
 
   async saveBoolean(key: string, value: boolean): Promise<void> {
     await this.put(key, value);
+  }
+
+  async saveTheme(themeId: TarotThemeId): Promise<void> {
+    await this.put('themeId', themeId);
+  }
+
+  async saveRecords(records: StoredReadingRecord[]): Promise<void> {
+    await this.put('readingRecordsV2', LocalDataCodec.encodeRecords(records));
   }
 
   private async put(key: string, value: preferences.ValueType): Promise<void> {
@@ -97,7 +114,9 @@ export class LocalAppStore {
       reversalsEnabled: true,
       soundEnabled: true,
       hapticEnabled: true,
-      recentThemesEnabled: true
+      recentThemesEnabled: true,
+      themeId: 'moon_garden',
+      records: []
     };
   }
 }
