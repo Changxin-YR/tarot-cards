@@ -20,6 +20,12 @@ if ($LASTEXITCODE -ne 0) {
   throw "Bottom navigation layout check failed with exit code $LASTEXITCODE"
 }
 
+$readingFlowExitCheck = Join-Path $PSScriptRoot 'test_reading_flow_exit.py'
+python $readingFlowExitCheck
+if ($LASTEXITCODE -ne 0) {
+  throw "Reading flow exit check failed with exit code $LASTEXITCODE"
+}
+
 $themeAssetCheck = Join-Path $PSScriptRoot 'validate-theme-assets.ps1'
 & $themeAssetCheck
 if ($LASTEXITCODE -ne 0) {

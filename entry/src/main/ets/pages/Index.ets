@@ -202,6 +202,35 @@ struct Index {
     this.page = this.navigationService.selectRoot(page);
   }
 
+  private exitReadingFlow(): void {
+    this.spread = 'single';
+    this.question = '';
+    this.mood = '';
+    this.readingScene = 'growth';
+    this.readingDepth = 'concise';
+    this.drawn = [];
+    this.clarifications = [];
+    this.clarificationReadings = [];
+    this.pendingDraw = [];
+    this.candidateCardIds = [];
+    this.selectedDrawIds = [];
+    this.summary = '';
+    this.connection = '';
+    this.actionText = '';
+    this.reflection = '';
+    this.safetyNotice = '';
+    this.resultSections = [];
+    this.resultAlgorithmVersion = 1;
+    this.currentSaved = false;
+    this.saveInProgress = false;
+    this.savedRecordId = '';
+    this.shuffleCount = 0;
+    this.revealedCount = 0;
+    this.clarificationFlow = false;
+    this.drawFlowService = new DrawFlowService(1);
+    this.selectRoot('home');
+  }
+
   private goBack(): void {
     if (this.menuOpen) {
       this.menuOpen = false;
@@ -810,6 +839,19 @@ struct Index {
   }
 
   @Builder
+  ReadingExitButton() {
+    Button($r('app.string.exit_reading'))
+      .type(ButtonType.Normal)
+      .width('100%')
+      .height(48)
+      .fontSize(15)
+      .fontColor(DesignTokens.PURPLE)
+      .backgroundColor(Color.Transparent)
+      .accessibilityText($r('app.string.exit_reading'))
+      .onClick((): void => this.exitReadingFlow())
+  }
+
+  @Builder
   HomePage() {
     Scroll() {
       Column({ space: 16 }) {
@@ -927,6 +969,7 @@ struct Index {
         this.SpreadCard('♢', $r('app.string.timeline_spread'), $r('app.string.timeline_spread_desc'), 'timeline')
         this.SpreadCard('☾', $r('app.string.relationship_spread'), $r('app.string.relationship_spread_desc'), 'relationship')
         this.SpreadCard('✦', $r('app.string.seven_spread'), $r('app.string.seven_spread_desc'), 'seven')
+        this.ReadingExitButton()
       }
       .padding({ left: 16, right: 16, bottom: 24 })
     }
@@ -1025,6 +1068,7 @@ struct Index {
         this.GoldButton(this.question.trim().length > 0 ? $r('app.string.next_step') : $r('app.string.skip_to_draw'), (): void => {
           this.openPage('drawMode');
         })
+        this.ReadingExitButton()
       }
       .padding({ left: 16, right: 16, bottom: 24 })
     }
@@ -1094,6 +1138,7 @@ struct Index {
       } else {
         this.GoldButton($r('app.string.continue_select'), (): void => this.continueToSelection())
       }
+      this.ReadingExitButton()
     }
     .layoutWeight(1)
     .padding({ left: 28, right: 28, bottom: 32 })
@@ -1155,6 +1200,7 @@ struct Index {
         .borderRadius(DesignTokens.RADIUS_MEDIUM)
         .enabled(this.selectedDrawIds.length === (this.clarificationFlow ? 1 : this.spreadPositions().length))
         .onClick((): void => this.confirmDrawSelection())
+      this.ReadingExitButton()
     }
     .layoutWeight(1)
     .padding({ left: DesignTokens.PAGE_PADDING, right: DesignTokens.PAGE_PADDING, bottom: 16 })
@@ -1201,6 +1247,7 @@ struct Index {
       } else {
         this.GoldButton($r('app.string.view_reading'), (): void => this.finishReveal())
       }
+      this.ReadingExitButton()
     }
     .layoutWeight(1)
     .padding({ left: DesignTokens.PAGE_PADDING, right: DesignTokens.PAGE_PADDING, bottom: 16 })
@@ -1323,6 +1370,7 @@ struct Index {
           .onClick((): void => {
             this.openPage('drawMode');
           })
+        this.ReadingExitButton()
       }
       .padding({ left: 16, right: 16, bottom: 28 })
     }

@@ -153,6 +153,7 @@
     { "name": "exit_title", "value": "退出应用？" },
     { "name": "exit_message", "value": "是否退出塔罗灵感牌？" },
     { "name": "exit_action", "value": "退出" },
+    { "name": "exit_reading", "value": "退出" },
     { "name": "shuffle_progress", "value": "已洗牌 %d/3" },
     { "name": "shuffle_once", "value": "洗牌一次" },
     { "name": "continue_select", "value": "凭直觉选牌" },
