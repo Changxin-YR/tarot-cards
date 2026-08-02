@@ -13,5 +13,14 @@ export default function spreadServiceTest(): void {
       expect(spreads[3].positions.length).assertEqual(7);
       expect(spreads.every((spread: SpreadDefinition): boolean => spread.isFree)).assertTrue();
     });
+
+    it('normalizesEntrySpreadsForStorage', 0, () => {
+      expect(SpreadService.storedValue('three')).assertEqual('timeline');
+      expect(SpreadService.storedValue('daily')).assertEqual('single');
+      expect(SpreadService.storedValue('single')).assertEqual('single');
+      expect(SpreadService.storedValue('timeline')).assertEqual('timeline');
+      expect(SpreadService.storedValue('relationship')).assertEqual('relationship');
+      expect(SpreadService.storedValue('seven')).assertEqual('seven');
+    });
   });
 }

@@ -1,4 +1,16 @@
 export class DesignTokens {
+  static readonly CONTENT_MAX_WIDTH: number = 720;
+  static readonly PAGE_PADDING: number = 16;
+  static readonly HEADER_HEIGHT: number = 56;
+  static readonly NAV_HEIGHT: number = 64;
+  static readonly SAFE_TOP_FALLBACK: number = 48;
+  static readonly SAFE_BOTTOM_FALLBACK: number = 24;
+  static readonly TOUCH_TARGET: number = 48;
+  static readonly CARD_ASPECT_RATIO: number = 0.6;
+  static readonly CARD_RADIUS: number = 6;
+  static readonly CARD_MAX_WIDTH: number = 180;
+  static readonly RADIUS_SMALL: number = 6;
+  static readonly RADIUS_MEDIUM: number = 8;
   static readonly BACKGROUND: string = '#F8F6FF';
   static readonly OUTER_BG: string = '#F1EEFA';
   static readonly SURFACE: string = '#FFFFFF';
@@ -20,7 +32,5 @@ export class DesignTokens {
   static readonly NAV_BORDER: string = '#E7E2F4';
   static readonly CARD_SHADOW: string = '#6757E82A';
   static readonly TOGGLE_ON: string = '#6757E8';
-  static readonly XIAOYI_BG: string = '#EEEAFE';
-  static readonly XIAOYI_BORDER: string = '#CBC1F4';
   static readonly ERROR_TEXT: string = '#A53F5B';
 }

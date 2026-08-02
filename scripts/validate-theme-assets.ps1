@@ -24,7 +24,7 @@ foreach ($theme in $themes) {
     }
     try {
       $image = [System.Drawing.Image]::FromFile($path)
-      if ($image.Width -ne 400 -or $image.Height -ne 600) {
+      if ($image.Width -ne 600 -or $image.Height -ne 1000) {
         $errors.Add("Unexpected dimensions: $path ($($image.Width)x$($image.Height))")
       }
       $image.Dispose()
@@ -36,12 +36,28 @@ foreach ($theme in $themes) {
   $back = Join-Path $mediaRoot ("${theme}_card_back.jpg")
   if (-not (Test-Path -LiteralPath $back -PathType Leaf)) {
     $errors.Add("Missing: $back")
+    continue
+  }
+  try {
+    $image = [System.Drawing.Image]::FromFile($back)
+    if ($image.Width -ne 600 -or $image.Height -ne 1000) {
+      $errors.Add("Unexpected dimensions: $back ($($image.Width)x$($image.Height))")
+    }
+    $image.Dispose()
+  }
+  catch {
+    $errors.Add("Unreadable: $back")
   }
 }
 
 if ($errors.Count -gt 0) {
   $errors | Select-Object -First 20 | ForEach-Object { Write-Error $_ -ErrorAction Continue }
   throw "Theme validation failed with $($errors.Count) error(s)."
+}
+
+python (Join-Path $PSScriptRoot 'test_import_tlp_decks.py')
+if ($LASTEXITCODE -ne 0) {
+  throw "Tarot image normalization validation failed with exit code $LASTEXITCODE"
 }
 
 Write-Host "Theme validation passed: $($themes.Count) themes, $($cardIds.Count) cards each, and one back each." -ForegroundColor Green

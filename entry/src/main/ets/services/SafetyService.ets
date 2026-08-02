@@ -16,8 +16,9 @@ export class SafetyService {
   ];
 
   static isHighRisk(question: string): boolean {
+    const normalized: string = question.replace(/\s+/g, '').toLowerCase();
     return SafetyService.HIGH_RISK_TERMS.some(
-      (term: string): boolean => question.includes(term)
+      (term: string): boolean => normalized.includes(term.toLowerCase())
     );
   }
 

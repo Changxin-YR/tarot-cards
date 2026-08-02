@@ -18,6 +18,21 @@ export default function questionClassifierTest(): void {
     it('fallsBackToDailyForEmptyQuestion', 0, () => {
       expect(QuestionClassifier.classify('  ')).assertEqual('daily');
     });
+
+    it('usesExplicitQuestionSemanticsOverAMismatchedSceneChip', 0, () => {
+      expect(QuestionClassifier.sceneFor('明天的工作汇报怎么准备？', 'relationship'))
+        .assertEqual('career');
+      expect(QuestionClassifier.sceneFor('考试前应该怎样安排复习？', 'relationship'))
+        .assertEqual('study');
+      expect(QuestionClassifier.sceneFor('怎样和伴侣谈清楚边界？', 'career'))
+        .assertEqual('relationship');
+      expect(QuestionClassifier.sceneFor('和朋友相处时怎样表达不同意见？', 'career'))
+        .assertEqual('social');
+    });
+
+    it('keepsSelectedSceneWhenQuestionHasNoExplicitScene', 0, () => {
+      expect(QuestionClassifier.sceneFor('我现在最需要关注什么？', 'growth'))
+        .assertEqual('growth');
+    });
   });
 }
-

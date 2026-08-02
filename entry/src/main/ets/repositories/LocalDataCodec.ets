@@ -1,5 +1,7 @@
 import {
   CardReadingSection,
+  ClarificationImpactType,
+  ClarificationReading,
   DrawnCard,
   Orientation,
   ReadingDepth,
@@ -36,7 +38,8 @@ export interface StoredReadingCollections {
 }
 
 export class LocalDataCodec {
-  private static readonly RECORD_VERSION_PREFIX: string = 'TR3:';
+  private static readonly RECORD_VERSION_PREFIX: string = 'TR4:';
+  private static readonly RECORD_VERSION_3_PREFIX: string = 'TR3:';
   private static readonly COLLECTION_VERSION_PREFIX: string = 'TRC1:';
   private static readonly COLLECTION_SEPARATOR: string = '|~H~|';
   private static readonly SEPARATOR: string = '';
@@ -48,6 +51,8 @@ export class LocalDataCodec {
   private static readonly SECTION_SEPARATOR: string = '|~S~|';
   private static readonly SECTION_FIELD_SEPARATOR: string = '|~Q~|';
   private static readonly KEYWORD_SEPARATOR: string = '|~K~|';
+  private static readonly CLARIFICATION_SEPARATOR: string = '|~A~|';
+  private static readonly CLARIFICATION_FIELD_SEPARATOR: string = '|~B~|';
   private static readonly LEGACY_RECORD_SEPARATOR: string = '';
   private static readonly LEGACY_RECORD_FIELD_SEPARATOR: string = '';
   private static readonly LEGACY_CARD_SEPARATOR: string = '';
@@ -129,7 +134,8 @@ export class LocalDataCodec {
         record.result.algorithmVersion.toString(),
         LocalDataCodec.encodeSections(record.result.sections),
         LocalDataCodec.encodeValue(record.note),
-        record.favorite ? '1' : '0'
+        record.favorite ? '1' : '0',
+        LocalDataCodec.encodeClarificationReadings(record.result.clarificationReadings ?? [])
       ].join(LocalDataCodec.RECORD_FIELD_SEPARATOR);
     }).join(LocalDataCodec.RECORD_SEPARATOR);
     return `${LocalDataCodec.RECORD_VERSION_PREFIX}${rows}`;
@@ -140,7 +146,10 @@ export class LocalDataCodec {
       return [];
     }
     if (value.startsWith(LocalDataCodec.RECORD_VERSION_PREFIX)) {
-      return LocalDataCodec.decodeVersion3Strict(value.slice(LocalDataCodec.RECORD_VERSION_PREFIX.length));
+      return LocalDataCodec.decodeVersion4Strict(value.slice(LocalDataCodec.RECORD_VERSION_PREFIX.length));
+    }
+    if (value.startsWith(LocalDataCodec.RECORD_VERSION_3_PREFIX)) {
+      return LocalDataCodec.decodeVersion3Strict(value.slice(LocalDataCodec.RECORD_VERSION_3_PREFIX.length));
     }
     if (value.includes(LocalDataCodec.LEGACY_RECORD_FIELD_SEPARATOR)) {
       return LocalDataCodec.decodeLegacyRecords(
@@ -179,11 +188,13 @@ export class LocalDataCodec {
     const historyValue: string = LocalDataCodec.decodeRequiredValue(
       payload.slice(separatorIndex + LocalDataCodec.COLLECTION_SEPARATOR.length)
     );
-    if (recordsValue.length > 0 && !recordsValue.startsWith(LocalDataCodec.RECORD_VERSION_PREFIX)) {
+    if (recordsValue.length > 0 &&
+      !recordsValue.startsWith(LocalDataCodec.RECORD_VERSION_PREFIX) &&
+      !recordsValue.startsWith(LocalDataCodec.RECORD_VERSION_3_PREFIX)) {
       throw new Error('Malformed reading records payload.');
     }
     const records: StoredReadingRecord[] = recordsValue.length === 0 ? [] :
-      LocalDataCodec.decodeVersion3Strict(recordsValue.slice(LocalDataCodec.RECORD_VERSION_PREFIX.length));
+      LocalDataCodec.decodeRecords(recordsValue);
     return {
       records,
       history: LocalDataCodec.decodeHistory(historyValue)
@@ -219,6 +230,38 @@ export class LocalDataCodec {
       LocalDataCodec.validateEncodedSections(fields[16]);
     });
     return LocalDataCodec.decodeVersion3(value);
+  }
+
+  private static decodeVersion4Strict(value: string): StoredReadingRecord[] {
+    if (value.length === 0) {
+      throw new Error('Malformed empty reading records payload.');
+    }
+    value.split(LocalDataCodec.RECORD_SEPARATOR).forEach((row: string): void => {
+      const fields: string[] = row.split(LocalDataCodec.RECORD_FIELD_SEPARATOR);
+      if (fields.length !== 20 ||
+        !LocalDataCodec.isUnsignedInteger(fields[1]) ||
+        !LocalDataCodec.isUnsignedInteger(fields[15]) ||
+        (fields[4] !== 'study' && fields[4] !== 'career' && fields[4] !== 'relationship' &&
+          fields[4] !== 'social' && fields[4] !== 'daily' && fields[4] !== 'growth') ||
+        (fields[5] !== 'concise' && fields[5] !== 'deep') ||
+        (fields[7] !== 'moon_garden' && fields[7] !== 'stained_glass') ||
+        (fields[18] !== '0' && fields[18] !== '1')) {
+        throw new Error('Malformed reading record row.');
+      }
+      const id: string = LocalDataCodec.decodeRequiredValue(fields[0]);
+      const spreadType: string = LocalDataCodec.decodeRequiredValue(fields[6]);
+      if (id.length === 0 || spreadType.length === 0) {
+        throw new Error('Malformed required reading record field.');
+      }
+      [2, 3, 10, 11, 12, 13, 14, 17].forEach((index: number): void => {
+        LocalDataCodec.decodeRequiredValue(fields[index]);
+      });
+      LocalDataCodec.validateEncodedCards(fields[8], false);
+      LocalDataCodec.validateEncodedCards(fields[9], true);
+      LocalDataCodec.validateEncodedSections(fields[16]);
+      LocalDataCodec.validateEncodedClarificationReadings(fields[19]);
+    });
+    return LocalDataCodec.decodeVersion4(value);
   }
 
   private static validateEncodedCards(value: string, allowEmpty: boolean): void {
@@ -259,6 +302,91 @@ export class LocalDataCodec {
         });
       }
     });
+  }
+
+  private static validateEncodedClarificationReadings(value: string): void {
+    if (value.length === 0) {
+      return;
+    }
+    value.split(LocalDataCodec.CLARIFICATION_SEPARATOR).forEach((row: string): void => {
+      const fields: string[] = row.split(LocalDataCodec.CLARIFICATION_FIELD_SEPARATOR);
+      const impactType: string = fields.length > 6 ? fields[6] : '';
+      if (fields.length !== 9 ||
+        (fields[2] !== 'upright' && fields[2] !== 'reversed') ||
+        !LocalDataCodec.isUnsignedInteger(fields[3]) || Number(fields[3]) < 1 ||
+        (impactType !== 'reinforce' && impactType !== 'supplement' &&
+          impactType !== 'caution' && impactType !== 'adjust')) {
+        throw new Error('Malformed clarification reading row.');
+      }
+      [0, 1, 4, 5, 7, 8].forEach((index: number): void => {
+        const decoded: string = LocalDataCodec.decodeRequiredValue(fields[index]);
+        if (decoded.length === 0) {
+          throw new Error('Malformed required clarification reading field.');
+        }
+      });
+    });
+  }
+
+  private static decodeVersion4(value: string): StoredReadingRecord[] {
+    const records: StoredReadingRecord[] = [];
+    value.split(LocalDataCodec.RECORD_SEPARATOR).forEach((row: string): void => {
+      const fields: string[] = row.split(LocalDataCodec.RECORD_FIELD_SEPARATOR);
+      if (fields.length !== 20) {
+        return;
+      }
+      const cards: DrawnCard[] = LocalDataCodec.decodeRecordCards(
+        fields[8],
+        LocalDataCodec.CARD_SEPARATOR,
+        LocalDataCodec.CARD_FIELD_SEPARATOR,
+        true
+      );
+      if (cards.length === 0) {
+        return;
+      }
+      const createdAt: number = Number(fields[1]);
+      const result: ReadingResult = {
+        summary: LocalDataCodec.decodeValue(fields[10]),
+        sections: LocalDataCodec.decodeSections(fields[16]),
+        action: LocalDataCodec.decodeValue(fields[12]),
+        reflection: LocalDataCodec.decodeValue(fields[13]),
+        algorithmVersion: LocalDataCodec.finiteNumber(fields[15], 1)
+      };
+      const connection: string = LocalDataCodec.decodeValue(fields[11]);
+      const safetyNotice: string = LocalDataCodec.decodeValue(fields[14]);
+      const clarificationReadings: ClarificationReading[] =
+        LocalDataCodec.decodeClarificationReadings(fields[19]);
+      if (connection.length > 0) {
+        result.connection = connection;
+      }
+      if (safetyNotice.length > 0) {
+        result.safetyNotice = safetyNotice;
+      }
+      if (clarificationReadings.length > 0) {
+        result.clarificationReadings = clarificationReadings;
+      }
+      records.push({
+        schemaVersion: 4,
+        id: LocalDataCodec.decodeValue(fields[0]),
+        createdAt: Number.isFinite(createdAt) ? createdAt : 0,
+        question: LocalDataCodec.decodeValue(fields[2]),
+        mood: LocalDataCodec.decodeValue(fields[3]),
+        scene: LocalDataCodec.scene(fields[4]),
+        depth: fields[5] === 'deep' ? 'deep' : 'concise',
+        spreadType: LocalDataCodec.decodeValue(fields[6]),
+        themeId: fields[7] === 'stained_glass' ? 'stained_glass' : 'moon_garden',
+        cards,
+        clarifications: LocalDataCodec.decodeRecordCards(
+          fields[9],
+          LocalDataCodec.CARD_SEPARATOR,
+          LocalDataCodec.CARD_FIELD_SEPARATOR,
+          true
+        ),
+        result,
+        note: LocalDataCodec.decodeValue(fields[17]),
+        favorite: fields[18] === '1'
+      });
+    });
+    return records;
   }
 
   private static decodeVersion3(value: string): StoredReadingRecord[] {
@@ -450,6 +578,47 @@ export class LocalDataCodec {
     return sections;
   }
 
+  private static encodeClarificationReadings(readings: ClarificationReading[]): string {
+    return readings.map((reading: ClarificationReading): string => [
+      LocalDataCodec.encodeValue(reading.cardId),
+      LocalDataCodec.encodeValue(reading.cardName),
+      reading.orientation,
+      reading.index.toString(),
+      LocalDataCodec.encodeValue(reading.focus),
+      LocalDataCodec.encodeValue(reading.meaning),
+      reading.impactType,
+      LocalDataCodec.encodeValue(reading.impact),
+      LocalDataCodec.encodeValue(reading.action)
+    ].join(LocalDataCodec.CLARIFICATION_FIELD_SEPARATOR))
+      .join(LocalDataCodec.CLARIFICATION_SEPARATOR);
+  }
+
+  private static decodeClarificationReadings(value: string): ClarificationReading[] {
+    if (value.length === 0) {
+      return [];
+    }
+    const readings: ClarificationReading[] = [];
+    value.split(LocalDataCodec.CLARIFICATION_SEPARATOR).forEach((row: string): void => {
+      const fields: string[] = row.split(LocalDataCodec.CLARIFICATION_FIELD_SEPARATOR);
+      if (fields.length !== 9) {
+        return;
+      }
+      const impactType: ClarificationImpactType = LocalDataCodec.clarificationImpactType(fields[6]);
+      readings.push({
+        cardId: LocalDataCodec.decodeValue(fields[0]),
+        cardName: LocalDataCodec.decodeValue(fields[1]),
+        orientation: fields[2] === 'reversed' ? 'reversed' : 'upright',
+        index: LocalDataCodec.finiteNumber(fields[3], 1),
+        focus: LocalDataCodec.decodeValue(fields[4]),
+        meaning: LocalDataCodec.decodeValue(fields[5]),
+        impactType,
+        impact: LocalDataCodec.decodeValue(fields[7]),
+        action: LocalDataCodec.decodeValue(fields[8])
+      });
+    });
+    return readings;
+  }
+
   private static encodeValue(value: string): string {
     return encodeURIComponent(value);
   }
@@ -493,6 +662,13 @@ export class LocalDataCodec {
       return value;
     }
     return 'growth';
+  }
+
+  private static clarificationImpactType(value: string): ClarificationImpactType {
+    if (value === 'reinforce' || value === 'caution' || value === 'adjust') {
+      return value;
+    }
+    return 'supplement';
   }
 
   private static sanitize(value: string): string {

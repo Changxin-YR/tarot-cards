@@ -6,7 +6,7 @@
 
 **Architecture:** Keep the Stage-model `entry` module. Move flow state and business rules out of `Index.ets` into typed models/services, keep Preferences access in repositories, and let ArkUI render only state and events. Stable tarot card IDs remain independent from theme media IDs. A generated theme manifest is the only card-to-media mapping used by the app.
 
-**Tech stack:** HarmonyOS NEXT API 24, ArkTS, ArkUI, Preferences, Hypium, Hvigor, PowerShell asset validation.
+**Tech stack:** HarmonyOS 6.0.2 API 22 target with the locally installed API 24 compile toolchain, ArkTS, ArkUI, Preferences, Hypium, Hvigor, PowerShell asset validation.
 
 ## Delivery Rules
 

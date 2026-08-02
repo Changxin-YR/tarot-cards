@@ -25,4 +25,14 @@ export class SpreadService {
       .find((item: SpreadDefinition): boolean => item.id === id);
     return spread ?? SpreadService.all()[0];
   }
+
+  static storedValue(spread: SpreadType): string {
+    if (spread === 'three') {
+      return 'timeline';
+    }
+    if (spread === 'daily') {
+      return 'single';
+    }
+    return spread;
+  }
 }

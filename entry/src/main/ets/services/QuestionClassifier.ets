@@ -1,6 +1,41 @@
-import { QuestionCategory } from '../models/TarotModels';
+import { QuestionCategory, ReadingScene } from '../models/TarotModels';
 
 export class QuestionClassifier {
+  static sceneFor(question: string, selected: ReadingScene): ReadingScene {
+    const normalized: string = question.trim().toLowerCase();
+    if (QuestionClassifier.containsAny(
+      normalized,
+      ['考试', '复习', '学习', '课程', '作业', '论文', '学校']
+    )) {
+      return 'study';
+    }
+    if (QuestionClassifier.containsAny(
+      normalized,
+      ['工作', '汇报', '项目', '职业', '同事', '老板', '升职', '面试']
+    )) {
+      return 'career';
+    }
+    if (QuestionClassifier.containsAny(
+      normalized,
+      ['伴侣', '感情', '恋爱', '复合', '婚姻', '约会', '喜欢的人']
+    )) {
+      return 'relationship';
+    }
+    if (QuestionClassifier.containsAny(
+      normalized,
+      ['朋友', '同学', '团队', '社交', '人际', '圈子', '相处']
+    )) {
+      return 'social';
+    }
+    if (QuestionClassifier.containsAny(
+      normalized,
+      ['成长', '习惯', '自己', '内心', '改变', '目标']
+    )) {
+      return 'growth';
+    }
+    return selected;
+  }
+
   static classify(question: string): QuestionCategory {
     const normalized: string = question.trim().toLowerCase();
     if (normalized.length === 0) {
@@ -43,4 +78,3 @@ export class QuestionClassifier {
     return keywords.some((keyword: string): boolean => value.includes(keyword));
   }
 }
-

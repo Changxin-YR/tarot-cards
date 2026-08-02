@@ -42,7 +42,7 @@ export default function localDataCodecTest(): void {
 
     it('roundTripsStructuredReadingRecords', 0, () => {
       const records: StoredReadingRecord[] = [{
-        schemaVersion: 3,
+        schemaVersion: 4,
         id: 'reading-1',
         createdAt: 1785480000000,
         question: '我应该关注什么？',
@@ -66,8 +66,19 @@ export default function localDataCodecTest(): void {
           connection: '把需要和行动重新连接。',
           action: '先确认一个共同目标。',
           reflection: '什么值得被坦率表达？',
+          clarificationReadings: [{
+            cardId: 'cups-02',
+            cardName: '圣杯二',
+            orientation: 'upright',
+            index: 1,
+            focus: '澄清关系核心中的真实需要。',
+            meaning: '圣杯二提示互相倾听与连接。',
+            impactType: 'reinforce',
+            impact: '这张牌强化了原解读中的沟通主题。',
+            action: '确认一次平等对话的时间。'
+          }],
           safetyNotice: '只作为自我反思。',
-          algorithmVersion: 2
+          algorithmVersion: 3
         },
         note: '稍后再看。',
         favorite: true
@@ -85,6 +96,12 @@ export default function localDataCodecTest(): void {
       expect(decoded[0].result.summary).assertEqual('先看见彼此真实的需要。');
       expect(decoded[0].result.sections[0].keywords[1]).assertEqual('分散');
       expect(decoded[0].result.action).assertEqual('先确认一个共同目标。');
+      expect((decoded[0].result.clarificationReadings ?? []).length).assertEqual(1);
+      expect(decoded[0].result.clarificationReadings?.[0].focus).assertEqual(
+        '澄清关系核心中的真实需要。'
+      );
+      expect(decoded[0].result.clarificationReadings?.[0].impactType).assertEqual('reinforce');
+      expect(decoded[0].schemaVersion).assertEqual(4);
       expect(decoded[0].note).assertEqual('稍后再看。');
       expect(decoded[0].favorite).assertTrue();
       expect(decoded[0].mood).assertEqual('期待');
@@ -121,7 +138,36 @@ export default function localDataCodecTest(): void {
       }
 
       expect(hasControlCharacter).assertFalse();
-      expect(encoded.startsWith('TR3:')).assertTrue();
+      expect(encoded.startsWith('TR4:')).assertTrue();
+    });
+
+    it('continuesToDecodeVersion3RecordsWithoutStructuredClarifications', 0, () => {
+      const encoded: string = LocalDataCodec.encodeRecords([{
+        schemaVersion: 4,
+        id: 'v3-compatibility',
+        createdAt: 1785480000000,
+        question: '旧记录还能打开吗？',
+        mood: '',
+        scene: 'growth',
+        depth: 'concise',
+        spreadType: 'single',
+        themeId: 'moon_garden',
+        cards: [{ cardId: 'major-00', orientation: 'upright', position: '核心指引' }],
+        clarifications: [],
+        result: {
+          summary: '保留旧摘要。', sections: [], action: '', reflection: '', algorithmVersion: 2
+        },
+        note: '',
+        favorite: false
+      }]);
+      const fields: string[] = encoded.slice(4).split('|~F~|');
+      const version3: string = `TR3:${fields.slice(0, 19).join('|~F~|')}`;
+      const decoded: StoredReadingRecord[] = LocalDataCodec.decodeRecords(version3);
+
+      expect(decoded.length).assertEqual(1);
+      expect(decoded[0].schemaVersion).assertEqual(3);
+      expect(decoded[0].result.summary).assertEqual('保留旧摘要。');
+      expect(decoded[0].result.clarificationReadings === undefined).assertTrue();
     });
 
     it('decodesLegacyRecordEvenWhenQuestionContainsPrintableDelimiter', 0, () => {
