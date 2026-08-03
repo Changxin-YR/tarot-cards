@@ -9,7 +9,6 @@
     { "name": "building_message", "value": "星月正在为你整理灵感…" },
     { "name": "app_title", "value": "塔罗灵感牌" },
     { "name": "greeting", "value": "晚上好，愿你在星光里听见自己" },
-    { "name": "privacy_local_only", "value": "所有问题与记录仅保存在这台设备" },
     { "name": "daily_draw_title", "value": "每日一抽" },
     { "name": "daily_draw_hint", "value": "听从直觉，抽一张今日指引" },
     { "name": "draw_one_card_btn", "value": "抽一张牌" },

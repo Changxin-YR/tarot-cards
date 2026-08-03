@@ -26,6 +26,12 @@ if ($LASTEXITCODE -ne 0) {
   throw "Reading flow exit check failed with exit code $LASTEXITCODE"
 }
 
+$homeGreetingCheck = Join-Path $PSScriptRoot 'test_home_greeting.py'
+python $homeGreetingCheck
+if ($LASTEXITCODE -ne 0) {
+  throw "Home greeting check failed with exit code $LASTEXITCODE"
+}
+
 $appIconCheck = Join-Path $PSScriptRoot 'test_app_icon.py'
 python $appIconCheck
 if ($LASTEXITCODE -ne 0) {

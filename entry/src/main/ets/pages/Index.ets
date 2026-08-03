@@ -864,9 +864,6 @@ struct Index {
           Text(this.greetingSubtitle)
             .fontSize(14)
             .fontColor(DesignTokens.TEXT_SECONDARY)
-          Text($r('app.string.privacy_local_only'))
-            .fontSize(13)
-            .fontColor(DesignTokens.TEXT_SECONDARY)
         }
         .width('100%')
         .alignItems(HorizontalAlign.Start)
