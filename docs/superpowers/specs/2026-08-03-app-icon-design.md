@@ -6,9 +6,9 @@
 
 ## 资源方案
 
-- 输出路径保持为 `entry/src/main/resources/base/media/app_icon.png`，避免修改现有应用与 Ability 资源引用。
+- 同步输出到 `AppScope/resources/base/media/app_icon.png` 与 `entry/src/main/resources/base/media/app_icon.png`，避免同名 AppScope 资源在打包时覆盖新图标。
 - 输出为 1024×1024、RGB PNG，不使用透明通道，避免桌面主题或启动窗口背景透出造成不可控边缘。
-- 从原图四周各裁去约 30px 白色留白，使主体充分利用图标画布。
+- 从原图四周各裁去 30px 白色留白，使主体充分利用图标画布。
 - 仅替换与画布边缘连通的近白色背景为项目深紫色；图标内部的月光、星光和文字高光不参与替换。
 - 使用高质量 Lanczos 重采样至 1024×1024，不再次绘制圆角；最终外形交由 HarmonyOS 桌面遮罩处理。
 
@@ -20,7 +20,7 @@
 
 ## 验证
 
-- 新增自动校验：资源必须存在、为 PNG、尺寸 1024×1024、颜色模式为 RGB/RGBA、四角不得为近白色、透明通道不得包含透明像素。
+- 新增自动校验：两份资源必须相同、为 PNG、尺寸 1024×1024、颜色模式为 RGB/RGBA、四角不得为近白色、透明通道不得包含透明像素。
 - 校验两个配置文件均继续引用真实存在的 `$media:app_icon`。
 - 执行项目标准门禁、debug HAP 和 `entry@ohosTest` HAP 构建。
 - 在 API 22 设备重新安装后，实际观察桌面图标和启动窗口；只有观察到的结果才写入 `design-qa.md`。

@@ -1,5 +1,20 @@
 # 变更记录
 
+## 2026-08-03 HarmonyOS 应用图标替换
+
+### 已完成
+
+- 使用用户提供的塔罗牌图片替换应用图标，固定裁去四周 30px 白边，将仅与画布边缘连通的近白背景替换为深紫色，再以 Lanczos 输出 1024×1024 RGB PNG。
+- 同步替换 `AppScope` 与 `entry` 的同名 `app_icon.png`，解决 AppScope 旧资源在打包时覆盖新图标的问题；应用、Ability 与启动窗口继续统一引用 `$media:app_icon`。
+- 新增 `scripts/test_app_icon.py` 并接入标准门禁，校验两份资源内容一致、尺寸、PNG 格式、不透明性、非白色四角和配置引用。
+
+### 验证
+
+- 回归测试先因旧图标为 180×180 按预期失败；发现 AppScope 覆盖后扩展测试，再因 AppScope 仍为 180×180 按预期失败，双资源同步后通过。
+- 标准门禁、debug HAP、`entry@ohosTest` HAP 构建通过；打包产物内图标为 Hvigor 处理后的 512×512 PNG。
+- API 22 模拟器重新安装后，桌面实际显示新的紫金塔罗图标，系统圆角遮罩正常，无白边或白角；设备截图为 `docs/qa/screenshots/2026-08-03-app-icon-launcher-final.jpeg`。
+- 设备端 Hypium：`Tests run: 72, Failure: 0, Error: 0, Pass: 72, Ignore: 0`。
+
 ## 2026-08-02 占卜流程统一退出入口
 
 ### 已完成

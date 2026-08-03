@@ -26,6 +26,12 @@ if ($LASTEXITCODE -ne 0) {
   throw "Reading flow exit check failed with exit code $LASTEXITCODE"
 }
 
+$appIconCheck = Join-Path $PSScriptRoot 'test_app_icon.py'
+python $appIconCheck
+if ($LASTEXITCODE -ne 0) {
+  throw "Application icon check failed with exit code $LASTEXITCODE"
+}
+
 $themeAssetCheck = Join-Path $PSScriptRoot 'validate-theme-assets.ps1'
 & $themeAssetCheck
 if ($LASTEXITCODE -ne 0) {
