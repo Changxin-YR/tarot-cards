@@ -1,10 +1,11 @@
 {
   "color": [
-    { "name": "background", "value": "#0E1024" },
-    { "name": "surface", "value": "#141B3A" },
-    { "name": "card", "value": "#1F2854" },
-    { "name": "gold", "value": "#E2C07A" },
-    { "name": "text_primary", "value": "#FFF1CC" },
-    { "name": "text_secondary", "value": "#B8B2C8" }
+    { "name": "background", "value": "#F8F6FF" },
+    { "name": "surface", "value": "#FFFFFF" },
+    { "name": "card", "value": "#EEEAFE" },
+    { "name": "primary", "value": "#6757E8" },
+    { "name": "accent_gold", "value": "#D8B978" },
+    { "name": "text_primary", "value": "#25205F" },
+    { "name": "text_secondary", "value": "#716D91" }
   ]
 }

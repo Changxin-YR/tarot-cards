@@ -34,6 +34,19 @@ export default function safetyServiceTest(): void {
       expect(filtered.includes('一定')).assertFalse();
       expect(filtered.includes('注定')).assertFalse();
     });
+
+    it('detectsImmediateSafetyAndMedicationQuestions', 0, () => {
+      expect(SafetyService.isHighRisk('我想伤害自己')).assertTrue();
+      expect(SafetyService.isHighRisk('我现在要不要停药')).assertTrue();
+    });
+
+    it('detectsDeterministicLegalAndInvestmentDecisions', 0, () => {
+      expect(SafetyService.isHighRisk('这场官司一定会赢吗')).assertTrue();
+      expect(SafetyService.isHighRisk('现在该买哪只股票')).assertTrue();
+    });
+
+    it('keepsOrdinaryReflectionQuestionsAvailable', 0, () => {
+      expect(SafetyService.isHighRisk('我今天怎样整理低落情绪')).assertFalse();
+    });
   });
 }
-

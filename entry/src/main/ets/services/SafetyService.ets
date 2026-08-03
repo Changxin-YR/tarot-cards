@@ -12,7 +12,14 @@ export class SafetyService {
     '投资',
     '基金',
     '诊断',
-    '药物'
+    '药物',
+    '伤害自己',
+    '自杀',
+    '轻生',
+    '伤害别人',
+    '停药',
+    '官司',
+    '买哪只股票'
   ];
 
   static isHighRisk(question: string): boolean {
@@ -44,4 +51,3 @@ export class SafetyService {
     return result;
   }
 }
-

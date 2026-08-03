@@ -3,6 +3,8 @@ import { TarotThemeId } from '../models/TarotModels';
 import { AppDataRepository, StoredAppData } from '../repositories/AppDataRepository';
 import { StoredCardNote, StoredReadingRecord } from '../repositories/LocalDataCodec';
 import { ReadingCollections, ReadingRecordService } from './ReadingRecordService';
+import { ComplianceService } from './ComplianceService';
+import { AppLogger } from '../common/AppLogger';
 
 export class AppDataService {
   private readonly repository: AppDataRepository;
@@ -78,6 +80,14 @@ export class AppDataService {
     });
   }
 
+  async acceptCurrentTerms(): Promise<string> {
+    return this.enqueue(async (): Promise<string> => {
+      const version: string = ComplianceService.CURRENT_VERSION;
+      await this.repository.saveAcceptedTermsVersion(version);
+      return version;
+    });
+  }
+
   async clearAll(): Promise<void> {
     return this.enqueue(async (): Promise<void> => {
       await this.readingRecords.clearAllData();
@@ -89,7 +99,8 @@ export class AppDataService {
     this.queue = operation.then(
       (): void => {
       },
-      (): void => {
+      (error: Error): void => {
+        AppLogger.error('AppDataService', 'queuedOperation', error);
       }
     );
     return operation;

@@ -38,6 +38,12 @@ if ($LASTEXITCODE -ne 0) {
   throw "Application icon check failed with exit code $LASTEXITCODE"
 }
 
+$reviewRemediationCheck = Join-Path $PSScriptRoot 'test_review_remediation.py'
+python $reviewRemediationCheck
+if ($LASTEXITCODE -ne 0) {
+  throw "Review remediation regression check failed with exit code $LASTEXITCODE"
+}
+
 $themeAssetCheck = Join-Path $PSScriptRoot 'validate-theme-assets.ps1'
 & $themeAssetCheck
 if ($LASTEXITCODE -ne 0) {
