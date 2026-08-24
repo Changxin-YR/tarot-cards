@@ -7,6 +7,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 INDEX_PATH = PROJECT_ROOT / "entry/src/main/ets/pages/Index.ets"
 TOKENS_PATH = PROJECT_ROOT / "entry/src/main/ets/common/DesignTokens.ets"
+HEADER_PATH = PROJECT_ROOT / "entry/src/main/ets/components/AppHeader.ets"
+NAV_PATH = PROJECT_ROOT / "entry/src/main/ets/components/BottomNavigation.ets"
 
 
 def section(source: str, start: str, end: str) -> str:
@@ -23,8 +25,8 @@ def require(condition: bool, message: str) -> None:
 def main() -> None:
     source = INDEX_PATH.read_text(encoding="utf-8")
     tokens = TOKENS_PATH.read_text(encoding="utf-8")
-    nav_bar = section(source, "  NavBar() {", "  @Builder\n  NavItem")
-    header = section(source, "  Header(title: ResourceStr", "  @Builder\n  StorageErrorNotice")
+    nav_bar = NAV_PATH.read_text(encoding="utf-8")
+    header = HEADER_PATH.read_text(encoding="utf-8")
     catalog = section(source, "  CatalogPage() {", "  @Builder\n  CardDetailPage")
     build = section(source, "  build() {", "\n  }\n}")
     page_builders = [
@@ -104,7 +106,7 @@ def main() -> None:
         "the 100% root must not grow beyond the viewport through safe-area padding",
     )
     require(
-        "this.SafeAreaSpacer(this.safeBottom)" in nav_bar,
+        ".height(this.safeBottom)" in nav_bar,
         "the TabBar must own a bottom spacer below its interactive content",
     )
     require(

@@ -29,7 +29,6 @@ export class DrawService {
     if (cardIds.length < 3) {
       throw new Error('三牌阵至少需要三张牌');
     }
-    const available: string[] = cardIds.slice();
     return DrawService.drawSpread(cardIds, ['过去', '现在', '未来趋势'], reversalsEnabled, random);
   }
 

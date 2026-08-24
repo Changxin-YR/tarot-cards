@@ -8,6 +8,7 @@ import {
 } from './LocalDataCodec';
 import { TarotThemeId } from '../models/TarotModels';
 import { AppDataRepository, StoredAppData } from './AppDataRepository';
+import { AppLogger } from '../common/AppLogger';
 
 export class LocalAppStore implements AppDataRepository {
   private store: preferences.Preferences | null = null;
@@ -19,9 +20,10 @@ export class LocalAppStore implements AppDataRepository {
     }
     try {
       await this.ready;
-    } catch {
+    } catch (error) {
       this.ready = null;
       this.store = null;
+      AppLogger.error('LocalAppStore', 'initialize', error);
       throw new Error('Local preferences initialization failed.');
     }
   }
@@ -47,6 +49,7 @@ export class LocalAppStore implements AppDataRepository {
     let themeValue: preferences.ValueType = 'moon_garden';
     let recordsValue: preferences.ValueType = '';
     let collectionsValue: preferences.ValueType = '';
+    let acceptedTermsVersionValue: preferences.ValueType = '';
     historyValue = await this.store.get('history', '');
     favoritesValue = await this.store.get('favorites', '');
     notesValue = await this.store.get('notes', '');
@@ -57,6 +60,7 @@ export class LocalAppStore implements AppDataRepository {
     themeValue = await this.store.get('themeId', 'moon_garden');
     recordsValue = await this.store.get('readingRecordsV2', '');
     collectionsValue = await this.store.get('readingCollectionsV1', '');
+    acceptedTermsVersionValue = await this.store.get('acceptedTermsVersion', '');
     const collectionsText: string = typeof collectionsValue === 'string' ? collectionsValue : '';
     const legacyHistory: string[] = LocalDataCodec.decodeHistory(
       typeof historyValue === 'string' ? historyValue : ''
@@ -80,7 +84,8 @@ export class LocalAppStore implements AppDataRepository {
       hapticEnabled: typeof hapticValue === 'boolean' ? hapticValue : true,
       recentThemesEnabled: typeof recentValue === 'boolean' ? recentValue : true,
       themeId: themeValue === 'stained_glass' ? 'stained_glass' : 'moon_garden',
-      records: collections.records
+      records: collections.records,
+      acceptedTermsVersion: typeof acceptedTermsVersionValue === 'string' ? acceptedTermsVersionValue : ''
     };
   }
 
@@ -98,6 +103,10 @@ export class LocalAppStore implements AppDataRepository {
 
   async saveTheme(themeId: TarotThemeId): Promise<void> {
     await this.put('themeId', themeId);
+  }
+
+  async saveAcceptedTermsVersion(value: string): Promise<void> {
+    await this.put('acceptedTermsVersion', value);
   }
 
   async saveRecordCollections(records: StoredReadingRecord[], history: string[]): Promise<void> {

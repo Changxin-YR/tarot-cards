@@ -21,11 +21,12 @@ export class DesignTokens {
   static readonly PURPLE_BORDER: string = '#DDD6F7';
   static readonly PURPLE_BORDER_LIGHT: string = '#CBC1F4';
   static readonly PURPLE_BORDER_WARM: string = '#D8B978';
-  static readonly GOLD: string = '#6757E8';
-  static readonly GOLD_LIGHT: string = '#6757E8';
+  static readonly PRIMARY: string = '#6757E8';
+  static readonly ACCENT_GOLD: string = '#D8B978';
+  static readonly ACCENT_GOLD_LIGHT: string = '#E2C07A';
   static readonly TEXT: string = '#25205F';
   static readonly TEXT_SECONDARY: string = '#716D91';
-  static readonly TEXT_ON_GOLD: string = '#FFFFFF';
+  static readonly TEXT_ON_PRIMARY: string = '#FFFFFF';
   static readonly PLACEHOLDER: string = '#9A96B1';
   static readonly DIVIDER: string = '#DDD6F7';
   static readonly NAV_BG: string = '#FFFFFF';

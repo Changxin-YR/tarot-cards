@@ -159,9 +159,24 @@
     { "name": "select_cards_title", "value": "选择你的牌" },
     { "name": "select_cards_hint", "value": "凭第一直觉依次选择，确认前可以更换" },
     { "name": "selected_count", "value": "已选 %d/%d" },
+    { "name": "clarification_position", "value": "澄清 %d" },
+    { "name": "candidate_card_position", "value": "第 %d 张" },
     { "name": "confirm_selection", "value": "确认选择" },
     { "name": "reveal_title", "value": "翻开你的牌" },
     { "name": "reveal_next", "value": "翻开下一张" },
-    { "name": "view_reading", "value": "查看完整解读" }
+    { "name": "view_reading", "value": "查看完整解读" },
+    { "name": "compliance_title", "value": "开始前请确认" },
+    { "name": "compliance_subtitle", "value": "塔罗灵感牌是一款完全离线的娱乐与自我反思工具。请阅读隐私政策和用户协议后再继续。" },
+    { "name": "privacy_policy_title", "value": "隐私政策" },
+    { "name": "privacy_policy_body", "value": "更新日期：2026年8月3日\n\n1. 本应用完全离线运行，不需要注册或登录，不申请网络权限，也不会收集、上传或与第三方共享个人信息。\n\n2. 您输入的问题、心情、笔记、收藏和抽牌记录仅保存在当前设备的应用本地存储中。清空本地数据或卸载应用后，这些内容将被删除且无法恢复。\n\n3. 本应用仅申请振动权限，用于洗牌、翻牌和保存时的可选触感反馈。\n\n4. 本应用不含广告、付费、会员或第三方统计服务。" },
+    { "name": "user_agreement_title", "value": "用户协议与免责声明" },
+    { "name": "user_agreement_body", "value": "更新日期：2026年8月3日\n\n1. 本应用以塔罗意象为载体，仅供娱乐、自我反思和情绪整理使用。\n\n2. 解读由本地规则与随机抽牌生成，不代表对未来的预测、承诺或确定判断。\n\n3. 内容不构成医疗诊断、心理咨询、法律意见或投资建议，也不能替代专业人士。遇到健康、安全、法律或财务问题时，请及时寻求相应专业帮助。\n\n4. 请勿利用本应用作出可能伤害自己、他人或重大财产利益的决定。" },
+    { "name": "review_privacy_policy", "value": "阅读隐私政策" },
+    { "name": "review_user_agreement", "value": "阅读用户协议" },
+    { "name": "agree_and_continue", "value": "同意并继续" },
+    { "name": "decline_and_exit", "value": "不同意并退出" },
+    { "name": "policy_back", "value": "返回确认" },
+    { "name": "close_action", "value": "关闭" },
+    { "name": "compliance_storage_error", "value": "暂时无法保存确认状态，请稍后重试。" }
   ]
 }

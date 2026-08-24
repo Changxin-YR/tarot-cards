@@ -27,6 +27,7 @@
         "label": "$string:entry_ability_label",
         "startWindowIcon": "$media:app_icon",
         "startWindowBackground": "$color:start_window_background",
+        "launchType": "singleton",
         "exported": true,
         "skills": [
           {
@@ -38,4 +39,3 @@
     ]
   }
 }
-

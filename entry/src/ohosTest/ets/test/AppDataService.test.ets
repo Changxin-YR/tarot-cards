@@ -12,6 +12,7 @@ class MemoryAppDataRepository implements AppDataRepository {
   operations: string[] = [];
   holdFavoriteWrite: boolean = false;
   favoriteRelease: (() => void) | null = null;
+  savedAcceptedTermsVersion: string = '';
 
   async initialize(_context: common.Context): Promise<void> {
   }
@@ -20,7 +21,7 @@ class MemoryAppDataRepository implements AppDataRepository {
     return {
       history: [], favorites: [], notes: [], records: [],
       reversalsEnabled: true, soundEnabled: true, hapticEnabled: true,
-      recentThemesEnabled: true, themeId: 'moon_garden'
+      recentThemesEnabled: true, themeId: 'moon_garden', acceptedTermsVersion: ''
     };
   }
 
@@ -53,6 +54,13 @@ class MemoryAppDataRepository implements AppDataRepository {
     if (this.shouldFail) {
       throw new Error('write failed');
     }
+  }
+
+  async saveAcceptedTermsVersion(value: string): Promise<void> {
+    if (this.shouldFail) {
+      throw new Error('write failed');
+    }
+    this.savedAcceptedTermsVersion = value;
   }
 
   async saveRecordCollections(
@@ -154,6 +162,32 @@ export default function appDataServiceTest(): void {
       expect(repository.operations.length).assertEqual(2);
       expect(repository.operations[0]).assertEqual('save-favorites');
       expect(repository.operations[1]).assertEqual('clear-all');
+    });
+
+    it('returnsCurrentTermsVersionOnlyAfterPersistenceSucceeds', 0, async () => {
+      const repository: MemoryAppDataRepository = new MemoryAppDataRepository();
+      const service: AppDataService = new AppDataService(repository);
+
+      const version: string = await service.acceptCurrentTerms();
+
+      expect(version).assertEqual('2026-08-03-v1');
+      expect(repository.savedAcceptedTermsVersion).assertEqual(version);
+    });
+
+    it('rejectsTermsAcceptanceWhenPersistenceFails', 0, async () => {
+      const repository: MemoryAppDataRepository = new MemoryAppDataRepository();
+      repository.shouldFail = true;
+      const service: AppDataService = new AppDataService(repository);
+      let rejected: boolean = false;
+
+      try {
+        await service.acceptCurrentTerms();
+      } catch {
+        rejected = true;
+      }
+
+      expect(rejected).assertTrue();
+      expect(repository.savedAcceptedTermsVersion).assertEqual('');
     });
   });
 }

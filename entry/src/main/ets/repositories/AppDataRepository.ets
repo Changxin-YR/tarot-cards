@@ -13,6 +13,7 @@ export interface StoredAppData {
   recentThemesEnabled: boolean;
   themeId: TarotThemeId;
   records: StoredReadingRecord[];
+  acceptedTermsVersion: string;
 }
 
 export interface AppDataRepository extends ReadingRecordRepository {
@@ -22,4 +23,5 @@ export interface AppDataRepository extends ReadingRecordRepository {
   saveNotes(notes: StoredCardNote[]): Promise<void>;
   saveBoolean(key: string, value: boolean): Promise<void>;
   saveTheme(themeId: TarotThemeId): Promise<void>;
+  saveAcceptedTermsVersion(value: string): Promise<void>;
 }
