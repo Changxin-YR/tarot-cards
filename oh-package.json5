@@ -1,6 +1,6 @@
 {
   "modelVersion": "6.0.0",
-  "description": "灵感卡片 HarmonyOS 6.0.2 API 22 原生单机应用",
+  "description": "塔罗灵感牌 HarmonyOS 6.0.2(22) 原生离线灵感卡应用",
   "dependencies": {},
   "devDependencies": {
     "@ohos/hypium": "file:./vendor/hypium"

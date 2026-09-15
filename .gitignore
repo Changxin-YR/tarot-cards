@@ -20,3 +20,33 @@ docs/qa/screenshots/2026-07-30-result.jpeg
 docs/qa/screenshots/2026-07-30-return.jpeg
 docs/qa/screenshots/2026-07-30-result-uinput.jpeg
 docs/qa/screenshots/2026-07-30-card-detail.jpeg
+
+# --- build / tool artifacts (added during GitHub migration) ---
+/build/
+/entry/build/
+/entry/.preview/
+/entry/.test/
+/.hvigor/
+/.idea/
+/oh_modules/
+/entry/oh_modules/
+/node_modules/
+/.superpowers/
+/.worktrees/
+/.tmp-*/
+/.codex-tmp*/
+__pycache__/
+*.pyc
+
+# --- local signing material (never commit) ---
+*.p12
+*.p7b
+*.cer
+*.keystore
+*.jks
+*.pem
+
+# --- OS / editor noise ---
+.DS_Store
+Thumbs.db
+*.dmp
