@@ -33,7 +33,7 @@ export class SafetyService {
     if (!SafetyService.isHighRisk(question)) {
       return '';
     }
-    return '塔罗牌不能替代专业判断。你可以把这次抽牌作为整理情绪的方式，但具体问题应咨询相应专业人士。';
+    return '提示卡不能替代专业判断。你可以把这次自我反思作为整理情绪的方式，但具体问题应咨询相应专业人士。';
   }
 
   static soften(content: string): string {

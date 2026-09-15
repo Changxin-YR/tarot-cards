@@ -10,7 +10,7 @@ export class SpreadService {
   static all(): SpreadDefinition[] {
     return [
       { id: 'single', positions: ['核心提示'], isFree: true },
-      { id: 'timeline', positions: ['过去', '现在', '未来趋势'], isFree: true },
+      { id: 'timeline', positions: ['已发生', '正在发生', '下一步行动'], isFree: true },
       { id: 'relationship', positions: ['我的状态', '对方或外部状态', '关系核心'], isFree: true },
       {
         id: 'seven',

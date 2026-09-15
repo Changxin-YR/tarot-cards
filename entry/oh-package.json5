@@ -1,10 +1,9 @@
 {
   "name": "entry",
   "version": "1.0.0",
-  "description": "塔罗灵感牌主 HAP 模块",
+  "description": "灵感卡片主 HAP 模块",
   "main": "",
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {}
 }
-

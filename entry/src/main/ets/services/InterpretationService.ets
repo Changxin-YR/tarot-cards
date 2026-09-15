@@ -71,7 +71,7 @@ export class InterpretationService {
         `${relationship.text}${context.depth === 'deep'
           ? `结合各个位置，还可以同时整理${lens.strength}、${lens.caution}与实际行动。`
           : ''}` +
-        `这些联系用于回应“${questionFocus}”，而不是对未来作确定预测。`
+        `这些联系用于回应“${questionFocus}”，而不是对现实结果作确定判断。`
       );
     const clarificationReadings: ClarificationReading[] =
       InterpretationService.buildClarifications(context, catalog, sections);
@@ -164,7 +164,7 @@ export class InterpretationService {
       const impactType: ClarificationImpactType = index === 0
         ? InterpretationService.impactType(target, draw, card, catalog)
         : InterpretationService.followingImpactType(draws[index - 1], draw, catalog);
-      const orientationLabel: string = draw.orientation === 'upright' ? '正位' : '逆位';
+      const orientationLabel: string = draw.orientation === 'upright' ? '正向视角' : '侧向视角';
       const seedIndex: number = InterpretationService.stableIndex(
         `${questionFocus}:${draw.cardId}:${draw.orientation}:${index}`,
         side.actionSeeds.length

@@ -29,9 +29,8 @@ import { AppDataService } from '../services/AppDataService';
 import { GreetingCopy, GreetingService } from '../services/GreetingService';
 import { NavigationService } from '../services/NavigationService';
 import { DrawFlowService } from '../services/DrawFlowService';
+import { NativeReadingFeedbackPort, ReadingFeedbackService } from '../services/ReadingFeedbackService';
 import { AppLogger } from '../common/AppLogger';
-import { ComplianceService } from '../services/ComplianceService';
-import { ComplianceGate } from '../components/ComplianceGate';
 import { ResponsiveLayout } from '../common/ResponsiveLayout';
 import { AppHeader } from '../components/AppHeader';
 import { BottomNavigation } from '../components/BottomNavigation';
@@ -91,7 +90,7 @@ struct Index {
   @State searchText: string = '';
   @State selectedCardId: string = '';
   @State reversalsEnabled: boolean = true;
-  @State soundEnabled: boolean = true;
+  @State soundEnabled: boolean = false;
   @State hapticEnabled: boolean = true;
   @State recentThemesEnabled: boolean = true;
   @State currentTheme: TarotThemeId = 'moon_garden';
@@ -112,14 +111,13 @@ struct Index {
   @State pendingDraw: DrawnCard[] = [];
   @State revealedCount: number = 0;
   @State clarificationFlow: boolean = false;
-  @State showCompliance: boolean = true;
-  @State complianceRequired: boolean = true;
-  @State complianceView: string = 'summary';
   @State viewportWidth: number = 360;
-  @State appDataReady: boolean = false;
+  @State initializationFailed: boolean = false;
   private appDataService: AppDataService = new AppDataService(new LocalAppStore());
   private navigationService: NavigationService = new NavigationService('home');
   private drawFlowService: DrawFlowService = new DrawFlowService(1);
+  private feedbackPort: NativeReadingFeedbackPort = new NativeReadingFeedbackPort();
+  private feedback: ReadingFeedbackService = new ReadingFeedbackService(this.feedbackPort);
   private lastHomeBackAt: number = 0;
   private configuredWindow: window.Window | null = null;
   private windowSizeChangeCallback: (size: window.Size) => void = (size: window.Size): void => {
@@ -133,6 +131,9 @@ struct Index {
       return;
     }
     await this.configureWindow(context);
+    this.feedbackPort.initialize(context).catch((error: Error): void => {
+      AppLogger.error('Index', 'initializeFeedback', error);
+    });
     try {
       const data: StoredAppData = await this.appDataService.initialize(context);
       this.history = data.history;
@@ -144,12 +145,11 @@ struct Index {
       this.recentThemesEnabled = data.recentThemesEnabled;
       this.currentTheme = data.themeId;
       this.records = data.records;
-      this.appDataReady = true;
-      this.complianceRequired = ComplianceService.requiresAcceptance(data.acceptedTermsVersion);
-      this.showCompliance = this.complianceRequired;
+      this.initializationFailed = false;
     } catch (error) {
       AppLogger.error('Index', 'initialize', error);
       this.storageError = true;
+      this.initializationFailed = true;
     }
   }
 
@@ -234,7 +234,7 @@ struct Index {
   private selectRoot(page: AppRootPage): void {
     this.menuOpen = false;
     this.selectedCardId = '';
-    this.transitionTo(this.navigationService.selectRoot(page));
+    this.page = this.navigationService.selectRoot(page);
   }
 
   private transitionTo(page: AppPage): void {
@@ -278,6 +278,11 @@ struct Index {
       return;
     }
     if (this.navigationService.depth() > 1) {
+      if (this.page === 'reveal') {
+        this.drawFlowService.returnToSelection();
+        this.pendingDraw = [];
+        this.revealedCount = 0;
+      }
       if (this.page === 'cardDetail') {
         this.selectedCardId = '';
         this.noteDraft = '';
@@ -333,22 +338,35 @@ struct Index {
     }
   }
 
-  private async acceptCurrentTerms(): Promise<void> {
-    try {
-      await this.appDataService.acceptCurrentTerms();
-      this.complianceRequired = false;
-      this.showCompliance = false;
-      this.complianceView = 'summary';
-      this.storageError = false;
-    } catch (error) {
-      AppLogger.error('Index', 'acceptCurrentTerms', error);
-      this.storageError = true;
-    }
+  private confirmRecoverFromInitializationFailure(): void {
+    this.getUIContext().showAlertDialog({
+      title: $r('app.string.recover_local_data_title'),
+      message: $r('app.string.recover_local_data_message'),
+      primaryButton: {
+        value: $r('app.string.cancel_action'),
+        action: (): void => {
+        }
+      },
+      secondaryButton: {
+        value: $r('app.string.recover_local_data_confirm'),
+        fontColor: DesignTokens.ERROR_TEXT,
+        action: (): void => {
+          this.recoverFromInitializationFailure();
+        }
+      }
+    });
   }
 
-  private openPolicy(view: string): void {
-    this.complianceView = view;
-    this.showCompliance = true;
+  private async recoverFromInitializationFailure(): Promise<void> {
+    try {
+      await this.appDataService.clearAll();
+      this.resetAfterClearingLocalData();
+      this.storageError = false;
+      this.initializationFailed = false;
+    } catch (error) {
+      AppLogger.error('Index', 'recoverFromInitializationFailure', error);
+      this.storageError = true;
+    }
   }
 
   private filteredCards(): TarotCard[] {
@@ -510,7 +528,11 @@ struct Index {
   }
 
   private performShuffle(): void {
+    const previous: number = this.shuffleCount;
     this.shuffleCount = this.drawFlowService.shuffle();
+    if (this.shuffleCount > previous) {
+      this.feedback.emit('shuffle', this.soundEnabled, this.hapticEnabled);
+    }
   }
 
   private continueToSelection(): void {
@@ -522,6 +544,7 @@ struct Index {
   private toggleDrawSelection(cardId: string): void {
     if (this.drawFlowService.toggle(cardId)) {
       this.selectedDrawIds = this.drawFlowService.selectedIds();
+      this.feedback.emit('selection', this.soundEnabled, this.hapticEnabled);
     }
   }
 
@@ -529,6 +552,7 @@ struct Index {
     if (!this.drawFlowService.confirm()) {
       return;
     }
+    this.feedback.emit('selection', this.soundEnabled, this.hapticEnabled);
     const positions: string[] = this.clarificationFlow
       ? [this.clarificationPosition(this.clarifications.length + 1)]
       : this.spreadPositions();
@@ -541,7 +565,11 @@ struct Index {
   }
 
   private revealNextCard(): void {
+    const previous: number = this.revealedCount;
     this.revealedCount = this.drawFlowService.revealNext();
+    if (this.revealedCount > previous) {
+      this.feedback.emit('reveal', this.soundEnabled, this.hapticEnabled);
+    }
   }
 
   private finishReveal(): void {
@@ -768,25 +796,27 @@ struct Index {
   private async clearAllLocalData(): Promise<void> {
     try {
       await this.appDataService.clearAll();
-      this.history = [];
-      this.records = [];
-      this.favorites = [];
-      this.notes = [];
-      this.reversalsEnabled = true;
-      this.soundEnabled = true;
-      this.hapticEnabled = true;
-      this.recentThemesEnabled = true;
-      this.currentTheme = 'moon_garden';
-      this.savedRecordId = '';
-      this.currentSaved = false;
-      this.complianceRequired = true;
-      this.complianceView = 'summary';
-      this.showCompliance = true;
+      this.resetAfterClearingLocalData();
       this.storageError = false;
     } catch (error) {
       AppLogger.error('Index', 'clearAllLocalData', error);
       this.storageError = true;
     }
+  }
+
+  private resetAfterClearingLocalData(): void {
+    this.history = [];
+    this.records = [];
+    this.favorites = [];
+    this.notes = [];
+    this.reversalsEnabled = true;
+    this.soundEnabled = false;
+    this.hapticEnabled = true;
+    this.recentThemesEnabled = true;
+    this.currentTheme = 'moon_garden';
+    this.savedRecordId = '';
+    this.currentSaved = false;
+    this.initializationFailed = false;
   }
 
   private confirmClearAllLocalData(): void {
@@ -840,13 +870,27 @@ struct Index {
   @Builder
   StorageErrorNotice() {
     if (this.storageError) {
-      Text($r('app.string.storage_error'))
-        .width('100%')
-        .padding(12)
-        .fontSize(13)
-        .fontColor(DesignTokens.ERROR_TEXT)
-        .backgroundColor(DesignTokens.SURFACE)
-        .borderRadius(8)
+      Column({ space: 8 }) {
+        Text($r('app.string.storage_error'))
+          .width('100%')
+          .fontSize(13)
+          .fontColor(DesignTokens.ERROR_TEXT)
+        if (this.initializationFailed) {
+          Button($r('app.string.recover_local_data_action'))
+            .width('100%')
+            .height(48)
+            .fontSize(14)
+            .fontColor(DesignTokens.ERROR_TEXT)
+            .backgroundColor(Color.Transparent)
+            .border({ width: 1, color: DesignTokens.ERROR_TEXT })
+            .borderRadius(DesignTokens.RADIUS_MEDIUM)
+            .onClick((): void => this.confirmRecoverFromInitializationFailure())
+        }
+      }
+      .width('100%')
+      .padding(12)
+      .backgroundColor(DesignTokens.SURFACE)
+      .borderRadius(8)
     }
   }
 
@@ -922,6 +966,7 @@ struct Index {
             .width(132)
             .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
             .objectFit(ImageFit.Cover)
+            .accessibilityText($r('app.string.card_back_accessibility'))
             .borderRadius(DesignTokens.CARD_RADIUS)
             .shadow({ radius: 18, color: DesignTokens.CARD_SHADOW })
           Button($r('app.string.draw_one_card_btn'))
@@ -972,10 +1017,24 @@ struct Index {
 
   @Builder
   QuickCard(icon: string, title: ResourceStr, subtitle: ResourceStr, target: string) {
-    Column({ space: 6 }) {
-      Text(icon).fontSize(25).fontColor(DesignTokens.ACCENT_GOLD)
-      Text(title).fontSize(14).fontColor(DesignTokens.TEXT)
+    Column({ space: 0 }) {
+      Text(icon)
+        .width('100%')
+        .height(DesignTokens.QUICK_ENTRY_ICON_HEIGHT)
+        .fontSize(25)
+        .fontColor(DesignTokens.ACCENT_GOLD)
+        .textAlign(TextAlign.Center)
+        .lineHeight(DesignTokens.QUICK_ENTRY_ICON_HEIGHT)
+      Text(title)
+        .width('100%')
+        .height(DesignTokens.QUICK_ENTRY_TITLE_HEIGHT)
+        .fontSize(14)
+        .fontColor(DesignTokens.TEXT)
+        .textAlign(TextAlign.Center)
+        .lineHeight(DesignTokens.QUICK_ENTRY_TITLE_HEIGHT)
       Text(subtitle)
+        .width('100%')
+        .height(DesignTokens.QUICK_ENTRY_SUBTITLE_HEIGHT)
         .fontSize(10)
         .fontColor(DesignTokens.TEXT_SECONDARY)
         .maxLines(2)
@@ -984,6 +1043,7 @@ struct Index {
     .layoutWeight(1)
     .height(112)
     .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
     .padding(8)
     .backgroundColor(DesignTokens.SURFACE)
     .borderRadius(14)
@@ -1057,11 +1117,13 @@ struct Index {
           .onChange((value: string): void => {
             this.question = value;
           })
-        Text(`${this.question.length}/300`)
+        Text(this.question.length >= 300
+          ? $r('app.string.question_limit_reached')
+          : $r('app.string.question_length_counter', this.question.length))
           .width('100%')
           .textAlign(TextAlign.End)
           .fontSize(12)
-          .fontColor(DesignTokens.TEXT_SECONDARY)
+          .fontColor(this.question.length >= 300 ? DesignTokens.ERROR_TEXT : DesignTokens.TEXT_SECONDARY)
         Text($r('app.string.scene_label'))
           .width('100%')
           .fontSize(16)
@@ -1069,13 +1131,13 @@ struct Index {
         Row({ space: 8 }) {
           ForEach(SCENE_OPTIONS.slice(0, 3), (item: [Resource, ReadingScene]) => {
             this.SceneChip(item[0], item[1])
-          })
+          }, (item: [Resource, ReadingScene]): string => item[1])
         }
         .width('100%')
         Row({ space: 8 }) {
           ForEach(SCENE_OPTIONS.slice(3), (item: [Resource, ReadingScene]) => {
             this.SceneChip(item[0], item[1])
-          })
+          }, (item: [Resource, ReadingScene]): string => item[1])
         }
         .width('100%')
         Text($r('app.string.depth_label'))
@@ -1157,12 +1219,14 @@ struct Index {
           .width(156)
           .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
           .objectFit(ImageFit.Cover)
+          .accessibilityText($r('app.string.card_back_accessibility'))
           .borderRadius(DesignTokens.CARD_RADIUS)
           .rotate({ angle: -8 - this.shuffleCount * 2 })
         Image(tarotThemeBack(this.currentTheme))
           .width(156)
           .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
           .objectFit(ImageFit.Cover)
+          .accessibilityText($r('app.string.card_back_accessibility'))
           .borderRadius(DesignTokens.CARD_RADIUS)
           .rotate({ angle: 8 + this.shuffleCount * 2 })
           .translate({ x: 18 + this.shuffleCount * 3 })
@@ -1209,6 +1273,7 @@ struct Index {
                 .width('100%')
                 .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
                 .objectFit(ImageFit.Cover)
+                .accessibilityText($r('app.string.candidate_card_accessibility', index + 1))
                 .borderRadius(DesignTokens.CARD_RADIUS)
                 .translate({ y: this.selectedDrawIds.includes(cardId) ? -10 : 0 })
                 .border({
@@ -1259,7 +1324,7 @@ struct Index {
   RevealPage() {
     Column({ space: 16 }) {
       this.Header($r('app.string.reveal_title'), true)
-      Text(this.question.trim().length > 0 ? `“${this.question}”` : $r('app.string.breathe_hint'))
+      Text(this.question.trim().length > 0 ? $r('app.string.question_quote', this.question) : $r('app.string.breathe_hint'))
         .fontSize(14)
         .fontColor(DesignTokens.TEXT_SECONDARY)
         .textAlign(TextAlign.Center)
@@ -1273,6 +1338,9 @@ struct Index {
               .width(this.pendingDraw.length === 1 ? 190 : this.pendingDraw.length <= 3 ? 98 : 72)
               .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
               .objectFit(ImageFit.Cover)
+              .accessibilityText(index < this.revealedCount
+                ? $r('app.string.card_image_accessibility', this.cardById(draw.cardId).nameZhCn)
+                : $r('app.string.card_back_accessibility'))
               .borderRadius(DesignTokens.CARD_RADIUS)
               .rotate({ angle: index < this.revealedCount && draw.orientation === 'reversed' ? 180 : 0 })
               .opacity(index <= this.revealedCount ? 1 : 0.72)
@@ -1309,7 +1377,7 @@ struct Index {
         this.Header(this.drawn.length > 1 ? $r('app.string.three_result_title') : $r('app.string.single_result_title'), true)
         this.StorageErrorNotice()
         if (this.question.trim().length > 0) {
-          Text(`"${this.question}"`)
+          Text($r('app.string.question_quote', this.question))
             .fontSize(13)
             .fontColor(DesignTokens.TEXT_SECONDARY)
             .textAlign(TextAlign.Center)
@@ -1321,6 +1389,7 @@ struct Index {
                 .width(this.drawn.length === 1 ? 190 : this.drawn.length <= 3 ? 98 : 72)
                 .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
                 .objectFit(ImageFit.Cover)
+                .accessibilityText($r('app.string.card_image_accessibility', this.cardById(draw.cardId).nameZhCn))
                 .borderRadius(DesignTokens.CARD_RADIUS)
                 .rotate({ angle: draw.orientation === 'reversed' ? 180 : 0 })
               Text(draw.position)
@@ -1359,6 +1428,7 @@ struct Index {
                   .width(78)
                   .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
                   .objectFit(ImageFit.Cover)
+                  .accessibilityText($r('app.string.card_image_accessibility', reading.cardName))
                   .borderRadius(DesignTokens.CARD_RADIUS)
                   .rotate({ angle: reading.orientation === 'reversed' ? 180 : 0 })
                 Column({ space: 5 }) {
@@ -1484,7 +1554,7 @@ struct Index {
                 .onClick((): void => {
                   this.catalogFilter = item[0];
                 })
-            })
+            }, (item: [string, Resource]): string => item[0])
           }
         }
         .scrollable(ScrollDirection.Horizontal)
@@ -1498,6 +1568,7 @@ struct Index {
                   .width('100%')
                   .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
                   .objectFit(ImageFit.Cover)
+                  .accessibilityText($r('app.string.card_image_accessibility', card.nameZhCn))
                   .borderRadius(DesignTokens.CARD_RADIUS)
                 Text(card.nameZhCn)
                   .fontSize(13)
@@ -1538,6 +1609,7 @@ struct Index {
           .width(220)
           .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
           .objectFit(ImageFit.Cover)
+          .accessibilityText($r('app.string.card_image_accessibility', this.cardById(this.selectedCardId).nameZhCn))
           .borderRadius(DesignTokens.CARD_RADIUS)
         Text(this.cardById(this.selectedCardId).nameZhCn)
           .fontSize(28)
@@ -1628,6 +1700,7 @@ struct Index {
           .width(148)
           .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
           .objectFit(ImageFit.Cover)
+          .accessibilityText($r('app.string.history_empty_image_accessibility'))
           .borderRadius(DesignTokens.CARD_RADIUS)
         Text($r('app.string.history_empty'))
           .fontSize(18)
@@ -1647,6 +1720,10 @@ struct Index {
                     .width(48)
                     .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
                     .objectFit(ImageFit.Cover)
+                    .accessibilityText($r(
+                      'app.string.card_image_accessibility',
+                      this.cardById(record.cards[0].cardId).nameZhCn
+                    ))
                     .borderRadius(DesignTokens.CARD_RADIUS)
                     .rotate({ angle: record.cards[0].orientation === 'reversed' ? 180 : 0 })
                   Column({ space: 6 }) {
@@ -1685,6 +1762,7 @@ struct Index {
                   .width(48)
                   .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
                   .objectFit(ImageFit.Cover)
+                  .accessibilityText($r('app.string.card_back_accessibility'))
                   .borderRadius(DesignTokens.CARD_RADIUS)
                 Column({ space: 6 }) {
                   Text(item).fontSize(15).fontColor(DesignTokens.TEXT)
@@ -1743,22 +1821,8 @@ struct Index {
         this.SettingRow($r('app.string.setting_themes'), $r('app.string.setting_themes_desc'), this.recentThemesEnabled, (value: boolean): void => {
           this.saveBooleanSetting('recentThemes', value);
         })
-        this.ResultSection($r('app.string.privacy_section'), $r('app.string.privacy_desc'))
+        this.ResultSection($r('app.string.user_agreement_title'), $r('app.string.user_agreement_body'))
         this.ResultSection($r('app.string.usage_section'), $r('app.string.usage_desc'))
-        Button($r('app.string.review_privacy_policy'))
-          .width('100%')
-          .height(48)
-          .fontColor(DesignTokens.PRIMARY)
-          .backgroundColor(DesignTokens.CARD)
-          .borderRadius(DesignTokens.RADIUS_MEDIUM)
-          .onClick((): void => this.openPolicy('privacy'))
-        Button($r('app.string.review_user_agreement'))
-          .width('100%')
-          .height(48)
-          .fontColor(DesignTokens.PRIMARY)
-          .backgroundColor(DesignTokens.CARD)
-          .borderRadius(DesignTokens.RADIUS_MEDIUM)
-          .onClick((): void => this.openPolicy('agreement'))
         this.ResultSection($r('app.string.about_section'), $r('app.string.about_desc'))
         Button($r('app.string.clear_all_data_action'))
           .width('100%')
@@ -1782,6 +1846,7 @@ struct Index {
         .width(72)
         .aspectRatio(DesignTokens.CARD_ASPECT_RATIO)
         .objectFit(ImageFit.Cover)
+        .accessibilityText($r('app.string.card_back_accessibility'))
         .borderRadius(DesignTokens.CARD_RADIUS)
       Text(title)
         .fontSize(14)
@@ -1819,6 +1884,7 @@ struct Index {
     }
     .width('100%')
     .padding(15)
+    .alignItems(VerticalAlign.Center)
     .backgroundColor(DesignTokens.SURFACE)
     .borderRadius(14)
   }
@@ -1875,28 +1941,6 @@ struct Index {
       .height('100%')
       .constraintSize({ maxWidth: DesignTokens.CONTENT_MAX_WIDTH })
       .backgroundColor(DesignTokens.BACKGROUND)
-      if (this.showCompliance) {
-        ComplianceGate({
-          mandatory: this.complianceRequired,
-          view: this.complianceView,
-          storageError: this.storageError,
-          ready: this.appDataReady,
-          safeTop: this.safeTop,
-          safeBottom: this.safeBottom,
-          onViewChange: (view: string): void => {
-            this.complianceView = view;
-          },
-          onAccept: (): void => {
-            this.acceptCurrentTerms();
-          },
-          onDecline: (): void => this.terminateApp(),
-          onClose: (): void => {
-            this.showCompliance = false;
-            this.complianceView = 'summary';
-          }
-        })
-          .zIndex(100)
-      }
     }
     .width('100%')
     .height('100%')

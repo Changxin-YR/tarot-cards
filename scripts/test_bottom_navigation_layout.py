@@ -28,6 +28,7 @@ def main() -> None:
     nav_bar = NAV_PATH.read_text(encoding="utf-8")
     header = HEADER_PATH.read_text(encoding="utf-8")
     catalog = section(source, "  CatalogPage() {", "  @Builder\n  CardDetailPage")
+    quick_card = section(source, "  QuickCard(", "  @Builder\n  DrawModePage")
     build = section(source, "  build() {", "\n  }\n}")
     page_builders = [
         "HomePage",
@@ -124,6 +125,27 @@ def main() -> None:
     require(
         ".translate({ y: DesignTokens.HEADER_HEIGHT })" in header,
         "the header menu must visually overlay content below the fixed header",
+    )
+    for track in (
+        "QUICK_ENTRY_ICON_HEIGHT",
+        "QUICK_ENTRY_TITLE_HEIGHT",
+        "QUICK_ENTRY_SUBTITLE_HEIGHT",
+    ):
+        require(
+            f"static readonly {track}" in tokens,
+            f"DesignTokens must define the {track} track for quick-entry alignment",
+        )
+        require(
+            f".height(DesignTokens.{track})" in quick_card,
+            f"QuickCard must reserve the {track} track for every shortcut",
+        )
+    require(
+        "Column({ space: 0 })" in quick_card,
+        "QuickCard must use explicit tracks rather than content-dependent spacing",
+    )
+    require(
+        ".alignItems(HorizontalAlign.Center)" in quick_card,
+        "QuickCard contents must share a centered horizontal track",
     )
     require(
         catalog.count(".layoutWeight(1)") >= 2,

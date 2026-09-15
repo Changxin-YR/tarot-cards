@@ -1,11 +1,10 @@
 {
   "app": {
     "bundleName": "com.tarotinspiration.offline",
-    "vendor": "Tarot Inspiration",
+    "vendor": "Inspiration Cards",
     "versionCode": 1000000,
     "versionName": "1.0.0",
     "icon": "$media:app_icon",
     "label": "$string:app_name"
   }
 }
-

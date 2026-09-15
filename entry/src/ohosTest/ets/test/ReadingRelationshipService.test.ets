@@ -144,8 +144,8 @@ export default function readingRelationshipServiceTest(): void {
       ], [STAR, CUPS_FIVE]);
 
       expect(insight.patterns[0]).assertEqual('orientation_turn');
-      expect(insight.text.includes('正位')).assertTrue();
-      expect(insight.text.includes('逆位')).assertTrue();
+      expect(insight.text.includes('正向视角')).assertTrue();
+      expect(insight.text.includes('侧向视角')).assertTrue();
     });
 
     it('recognizesMajorArcanaConcentration', 0, () => {
@@ -168,8 +168,8 @@ export default function readingRelationshipServiceTest(): void {
       ], [WANDS_TWO, SWORDS_THREE]);
 
       expect(insight.patterns.includes('element_support')).assertTrue();
-      expect(insight.text.includes('火')).assertTrue();
-      expect(insight.text.includes('风')).assertTrue();
+      expect(insight.text.includes('权杖二')).assertTrue();
+      expect(insight.text.includes('宝剑三')).assertTrue();
     });
 
     it('usesNeutralSequenceWhenNoReliablePatternExists', 0, () => {

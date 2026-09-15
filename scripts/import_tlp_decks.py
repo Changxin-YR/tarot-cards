@@ -14,6 +14,9 @@ from PIL import Image, ImageChops, ImageStat
 THEMES = ("moon_garden", "stained_glass")
 SUITS = ("wands", "cups", "swords", "pentacles")
 OUTPUT_SIZE = (600, 1000)
+MAX_THEME_BYTES = 16 * 1024 * 1024
+CARD_BACK_ID = "card_back"
+SUPPLEMENTAL_SOURCE_NAME = "__supplemental_source__"
 
 
 def _ids(prefix: str, start: int, end: int) -> list[str]:
@@ -46,6 +49,26 @@ SOURCE_GROUPS: dict[str, list[tuple[str, list[str]]]] = {
         ("783de536-893f-486b-ad95-7635a40f43e0.png", _ids("cups", 10, 14)),
     ],
 }
+
+
+STAINED_GLASS_SOURCE_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("7005996e-bc1b-4393-8885-6e548acd031d.png", tuple(_ids("major", 0, 4))),
+    ("80bb724f-5252-403f-970d-9224be90cf81.png", tuple(_ids("major", 5, 9))),
+    ("eeabe22f-18e9-4fb4-9b03-9593f41725d7.png", tuple(_ids("major", 10, 14))),
+    ("38d2254c-34f9-4d57-81bd-5abf74349587.png", tuple(_ids("major", 15, 19))),
+    ("8c5395b6-7a4e-4d80-bd01-c4be1a37e6c0.png", tuple(_ids("major", 20, 21) + _ids("cups", 1, 3))),
+    ("17eae0b8-94e4-488a-93ae-18164eabd226.png", ("cups-14", *_ids("wands", 1, 4))),
+    ("e54e6b7d-53dd-4c39-aecf-fefe4777bde6.png", tuple(_ids("wands", 5, 9))),
+    ("5f857b07-14a7-4e94-a2d1-a73a0b8aa157.png", tuple(_ids("wands", 10, 14))),
+    ("276d53d8-876a-4312-b6f9-a38fd8113ab2.png", tuple(_ids("cups", 4, 8))),
+    ("e352979c-2bf7-44ef-a943-048faed2cd20.png", tuple(_ids("cups", 9, 13))),
+    ("09377971-5e41-4766-a551-aa5bf3d7b85d.png", tuple(_ids("swords", 11, 14) + _ids("pentacles", 1, 1))),
+    ("b7fe7933-bd03-458c-8d7b-fbd6822ee31d.png", tuple(_ids("swords", 1, 5))),
+    (SUPPLEMENTAL_SOURCE_NAME, tuple(_ids("swords", 6, 10))),
+    ("8f197e02-26df-4ff9-8a08-820ef835471d.png", tuple(_ids("pentacles", 2, 6))),
+    ("b61e4b54-ce7e-434c-88c9-b4eacdea1a18.png", tuple(_ids("pentacles", 7, 11))),
+    ("271b98ba-caa8-4261-b583-b5ba825aa127 (1).png", tuple(_ids("pentacles", 12, 14) + [CARD_BACK_ID])),
+)
 
 
 def expected_card_ids() -> list[str]:
@@ -104,7 +127,7 @@ def fit_cover(image: Image.Image, size: tuple[int, int] = OUTPUT_SIZE) -> Image.
     return resized.crop((left, top, left + size[0], top + size[1]))
 
 
-def split_horizontal_cards(image: Image.Image) -> list[Image.Image]:
+def split_horizontal_cards(image: Image.Image, expected_count: int | None = None) -> list[Image.Image]:
     rgb = image.convert("RGB")
     active_columns: list[bool] = []
     minimum_pixels = max(4, round(rgb.height * 0.06))
@@ -125,8 +148,14 @@ def split_horizontal_cards(image: Image.Image) -> list[Image.Image]:
             if index - start >= round(rgb.width * 0.1):
                 runs.append((start, index))
             start = None
-    if len(runs) != 5:
-        raise AssertionError(f"horizontal source must contain five cards, found {len(runs)}")
+    if expected_count is not None:
+        if expected_count not in (4, 5):
+            raise AssertionError(f"horizontal source must expect four or five cards, got {expected_count}")
+        if len(runs) != expected_count:
+            boundaries = [round(rgb.width * index / expected_count) for index in range(expected_count + 1)]
+            return [rgb.crop((boundaries[index], 0, boundaries[index + 1], rgb.height)) for index in range(expected_count)]
+    if len(runs) not in (4, 5):
+        raise AssertionError(f"horizontal source must contain four or five cards, found {len(runs)}")
     return [rgb.crop((left, 0, right, rgb.height)) for left, right in runs]
 
 
@@ -158,28 +187,52 @@ def _has_black_side_bar(image: Image.Image) -> bool:
     return False
 
 
-def validate_output_decks(media_root: Path) -> None:
-    for theme_id in THEMES:
-        hashes: set[str] = set()
-        for card_id in expected_card_ids():
-            path = resource_path(media_root, theme_id, card_id)
-            if not path.is_file():
-                raise AssertionError(f"missing tarot resource: {path.name}")
-            with Image.open(path) as image:
-                image.load()
-                if image.size != OUTPUT_SIZE:
-                    raise AssertionError(f"{path.name} must be 600x1000, got {image.size}")
-                if _has_black_side_bar(image):
-                    raise AssertionError(f"{path.name} contains a black side bar")
-            digest = perceptual_hash(path)
-            if digest in hashes:
-                raise AssertionError(f"{theme_id} contains a duplicate-looking card: {path.name}")
-            hashes.add(digest)
-        back = media_root / f"{theme_id}_card_back.jpg"
-        with Image.open(back) as image:
+def theme_media_paths(media_root: Path, theme_id: str) -> list[Path]:
+    return [resource_path(media_root, theme_id, card_id) for card_id in expected_card_ids()] + [
+        media_root / f"{theme_id}_card_back.jpg"
+    ]
+
+
+def theme_media_bytes(media_root: Path, theme_id: str) -> int:
+    return sum(path.stat().st_size for path in theme_media_paths(media_root, theme_id))
+
+
+def validate_theme_deck(media_root: Path, theme_id: str) -> None:
+    paths = theme_media_paths(media_root, theme_id)
+    missing = [path.name for path in paths if not path.is_file()]
+    if missing:
+        raise AssertionError(f"missing {theme_id} resources: {', '.join(missing)}")
+
+    hashes: set[str] = set()
+    for card_id in expected_card_ids():
+        path = resource_path(media_root, theme_id, card_id)
+        with Image.open(path) as image:
             image.load()
             if image.size != OUTPUT_SIZE:
-                raise AssertionError(f"{back.name} must be 600x1000, got {image.size}")
+                raise AssertionError(f"{path.name} must be 600x1000, got {image.size}")
+            if _has_black_side_bar(image):
+                raise AssertionError(f"{path.name} contains a black side bar")
+        digest = perceptual_hash(path)
+        if digest in hashes:
+            raise AssertionError(f"{theme_id} contains a duplicate-looking card: {path.name}")
+        hashes.add(digest)
+
+    back = media_root / f"{theme_id}_card_back.jpg"
+    with Image.open(back) as image:
+        image.load()
+        if image.size != OUTPUT_SIZE:
+            raise AssertionError(f"{back.name} must be 600x1000, got {image.size}")
+
+    total_bytes = theme_media_bytes(media_root, theme_id)
+    if total_bytes > MAX_THEME_BYTES:
+        raise AssertionError(
+            f"{theme_id} media is {total_bytes} bytes, over the {MAX_THEME_BYTES}-byte transport budget"
+        )
+
+
+def validate_output_decks(media_root: Path) -> None:
+    for theme_id in THEMES:
+        validate_theme_deck(media_root, theme_id)
 
 
 def normalize_existing_decks(media_root: Path) -> None:
@@ -201,6 +254,44 @@ def normalize_existing_decks(media_root: Path) -> None:
         validate_output_decks(staging)
         for source_path in sources:
             os.replace(staging / source_path.name, source_path)
+
+
+def _source_sheet_path(source_root: Path, source_name: str, supplemental_source: Path | None) -> Path:
+    if source_name == SUPPLEMENTAL_SOURCE_NAME:
+        if supplemental_source is None:
+            raise AssertionError("missing supplemental source for swords-06 through swords-10")
+        return supplemental_source
+    return source_root / source_name
+
+
+def import_stained_glass_sources(
+    source_root: Path, supplemental_source: Path | None, media_root: Path
+) -> None:
+    media_root.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="stained-glass-", dir=media_root.parent) as value:
+        staging = Path(value)
+        for source_name, card_ids in STAINED_GLASS_SOURCE_GROUPS:
+            source_path = _source_sheet_path(source_root, source_name, supplemental_source)
+            if not source_path.is_file():
+                raise AssertionError(f"missing Stained Glass source: {source_path}")
+            with Image.open(source_path) as source:
+                cards = split_horizontal_cards(source, expected_count=len(card_ids))
+            if len(cards) != len(card_ids):
+                raise AssertionError(
+                    f"Stained Glass source {source_path.name} has {len(cards)} cards, expected {len(card_ids)}"
+                )
+            for card, card_id in zip(cards, card_ids, strict=True):
+                output = fit_cover(trim_uniform_border(card))
+                output_name = (
+                    "stained_glass_card_back.jpg"
+                    if card_id == CARD_BACK_ID
+                    else resource_path(staging, "stained_glass", card_id).name
+                )
+                output.save(staging / output_name, format="JPEG", quality=85, optimize=True)
+
+        validate_theme_deck(staging, "stained_glass")
+        for source_path in theme_media_paths(staging, "stained_glass"):
+            os.replace(source_path, media_root / source_path.name)
 
 
 def import_tlp_sources(source_root: Path, media_root: Path) -> None:
@@ -248,9 +339,10 @@ def main() -> int:
     )
     parser.add_argument("--validate-only", action="store_true")
     parser.add_argument("--source-root", type=Path)
+    parser.add_argument("--supplemental-source", type=Path)
     args = parser.parse_args()
     if args.source_root is not None:
-        import_tlp_sources(args.source_root, args.media_root)
+        import_stained_glass_sources(args.source_root, args.supplemental_source, args.media_root)
     elif not args.validate_only:
         normalize_existing_decks(args.media_root)
     validate_output_decks(args.media_root)

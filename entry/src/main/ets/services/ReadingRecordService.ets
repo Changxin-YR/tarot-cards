@@ -1,5 +1,6 @@
 import { StoredReadingRecord } from '../repositories/LocalDataCodec';
 import { ReadingRecordRepository } from '../repositories/ReadingRecordRepository';
+import { AppLogger } from '../common/AppLogger';
 
 export interface ReadingCollections {
   records: StoredReadingRecord[];
@@ -88,7 +89,8 @@ export class ReadingRecordService {
     this.queue = operation.then(
       (): void => {
       },
-      (): void => {
+      (error: Error): void => {
+        AppLogger.error('ReadingRecordService', 'queuedOperation', error);
       }
     );
     return operation;

@@ -1,5 +1,208 @@
 # 变更记录
 
+## 2026-08-05 音效默认关闭
+
+### 已完成
+
+- 将本地 Preferences 中缺失或异常的 `sound` 值回退为 `false`，不再默认开启音效。
+- 将首页加载本地数据前，以及清除全部本机数据后的音效状态同步为关闭；已保存的 `true` 或 `false` 设置仍原样保留。
+
+### 验证
+
+- 测试先行：新增默认值回归后，旧逻辑因 `sound` 缺省回退为 `true` 而失败；最小实现后 `python scripts/test_appgallery_followup.py` 13 项通过。
+- `scripts/check-standard.ps1` 通过；debug 与 `entry@ohosTest` HAP 均完成类型检查、资源处理、签名和打包。
+- 最新 debug HAP 已保留现有本机数据覆盖安装至 OpenHarmony 6.0.2 / API 22 模拟器 `127.0.0.1:5555`，应用正常启动。为避免删除可能存在的本机牌局和笔记，本轮未清除模拟器数据，未将该启动记录为首次安装开关状态验收。
+
+## 2026-08-05 删除设置页隐私声明
+
+### 已完成
+
+- 删除设置页的“隐私政策”卡片，以及 `privacy_policy_title` 和 `privacy_policy_body` 两条未再使用的字符串资源。
+- 保留“用户协议与免责声明”卡片、纯离线实现和本地存储行为。
+
+### 验证
+
+- 新增回归，禁止设置页引用或资源包保留隐私声明；专项回归 12 项、整改回归 14 项和标准门禁通过，debug 与 `entry@ohosTest` HAP 构建通过。
+- 最新包在 OpenHarmony 6.0.2 / API 22 模拟器设置页中，未观察到隐私政策卡片；证据为 `docs/qa/screenshots/2026-08-05-settings-no-privacy-declaration.jpeg`。
+
+## 2026-08-05 底部导航切换残影修复
+
+### 已完成
+
+- `selectRoot()` 不再经由全局 `animateTo` 更新页面状态，避免导航图标、标签与选中底色在根页面切换时被同时插值。
+- 保留内容容器的 180ms 淡入淡出，四项导航路由和统一 SVG 图标轨道不变。
+
+### 验证
+
+- 新增专项回归锁定根导航不能走全局页面动画；`python scripts/test_appgallery_followup.py` 11 项通过，标准门禁和 debug HAP 构建通过。
+- 最新 debug HAP 覆盖安装至 OpenHarmony 6.0.2 / API 22 模拟器 `127.0.0.1:5555`，连续切换首页、抽取、卡片库、我的后返回首页，未观察到底部导航的图标、标签或选中底色残留；证据为 `docs/qa/screenshots/2026-08-05-bottom-navigation-no-trail.jpeg`。
+
+## 2026-08-05 音效混音、柔化与首页导航图标统一
+
+### 已完成
+
+- 将 `NativeReadingFeedbackPort` 的 `SoundPool` renderer usage 从 `STREAM_USAGE_GAME` 切换为 `STREAM_USAGE_MUSIC`。本机 SDK 说明该用途会让短音效走混音模式，避免每次交互重复承担非混音的音频焦点或路由成本；已移除零音量 warm-up。
+- 将 `reading_feedback.wav` 更新为 48 kHz、16-bit、单声道、96 ms 的离线 PCM WAV。声音使用 523 Hz 与 784 Hz 的低幅度泛音、4 ms 淡入和自然衰减；首个有效采样在第 1 帧，峰值为 4961。
+- `SoundPool` 加载错误会结束等待并释放失败实例；首页并行初始化可选音效，音频异常不会阻断离线数据加载。
+- 将底部导航从 Unicode 字形替换为四份统一 24vp SVG 图标，全部居中于共享的 36vp 方形承载区；标签统一为 11vp 中等字重和固定高度轨道，选中态只改变固定承载区的底色与图标颜色。
+
+### 验证
+
+- 测试先行：专项回归先因旧 `STREAM_USAGE_GAME`、22050 Hz 资源和 36×28vp 图标文本框出现 3 项失败；字形校准契约随后因缺少尺寸令牌出现 1 项失败。代码审查再发现声音池错误会阻塞启动，新增错误降级与统一 SVG 图标契约后 `python scripts/test_appgallery_followup.py` 10 项通过，安全区布局回归和审查回归分别通过。
+- `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-standard.ps1` 通过；debug HAP 与 `entry@ohosTest` HAP 均通过 ArkTS 类型检查、资源处理、签名和打包。
+- 最新 debug HAP 已覆盖安装至 OpenHarmony 6.0.2 / API 22 模拟器 `127.0.0.1:5555`。首页观察到四项底部导航图标位于相同的 24vp 画布与 36vp 方形承载轨道内，标签字号、字重和基线一致；证据为 `docs/qa/screenshots/2026-08-05-reading-feedback-nav-uniform.svg-icons.jpeg`。模拟器不能测量真实扬声器起声时间或音色听感，不将其视为音效验收。
+
+## 2026-08-05 点击音效冷启动预热
+
+### 已完成
+
+- 排除声音素材原因：`reading_feedback.wav` 时长为 120 ms，首个有效采样位于 0 ms，没有约一秒的前置静音。
+- 在声音池资源解码完成后执行一次零音量、一次性的播放，以在用户操作前建立系统音频输出通道；用户触发的洗牌、选牌和翻牌仍使用原有的满音量、高优先级短音效参数。
+- 新增回归，确保后续改动不会移除零音量预热或将点击音效退回到冷启动路径。
+
+### 验证
+
+- 新增预热回归先因缺少预热参数和调用而失败，完成最小实现后 `python scripts/test_appgallery_followup.py` 7 项通过；审查与布局回归继续通过。
+- 标准门禁、应用身份校验、debug HAP 与 `entry@ohosTest` HAP 构建通过；最新测试包在 `127.0.0.1:5555` 的 Hypium 结果为 `Tests run: 82, Failure: 0, Error: 0, Pass: 82, Ignore: 0`。
+- 最新 debug HAP 覆盖安装并启动后，设备日志未见 `NativeReadingFeedbackPort` 的 `warmUp` 或 `play` 失败。模拟器无法测量扬声器真实起声时间，目标设备听感仍需人工确认。
+
+## 2026-08-05 首页快速入口基准线对齐
+
+### 已完成
+
+- 为首页“单卡”“三卡布局”“卡片库”快速入口建立图标、标题和说明三条固定高度轨道，消除不同字形及说明换行造成的视觉基准线漂移。
+- 保持原有 112vp 卡片高度、三项入口行为、触控范围、颜色和应用标识不变。
+- 扩展布局回归，要求快速入口使用共享设计令牌、明确高度轨道和居中轨道。
+
+### 验证
+
+- 新增回归先因缺少 `QUICK_ENTRY_*_HEIGHT` 轨道失败，最小改动后 `python scripts/test_bottom_navigation_layout.py` 与 `python scripts/test_appgallery_followup.py` 通过。
+- `scripts/check-standard.ps1`、应用身份校验和 debug HAP 类型检查、资源处理、签名与打包通过。
+- 最新 debug HAP 覆盖安装到 `127.0.0.1:5555` 后，模拟器首页观察到三个快速入口的图标、标题和说明分别位于同一水平轨道。
+
+## 2026-08-05 AppGallery 反馈交互复测与首页导航优化
+
+### 已完成
+
+- 将 `NativeReadingFeedbackPort` 的短音池从单路扩展为两路，并固定一次性、高优先级播放参数；未就绪的操作仍直接跳过，不延迟补播历史点击。
+- 为首页底部导航的激活图标增加紧凑承载、统一字重与居中轨道；保留原有四项导航、48vp 以上触控区、应用名称和应用图标。
+- 增加专项回归，锁定声音池并发参数、即时播放参数、隐私托管下不显示第二个启动门以及首页图标激活态。
+
+### 验证
+
+- 新增专项回归先观察到 2 项失败，完成实现后 `python scripts/test_appgallery_followup.py` 6 项通过；`python scripts/test_review_remediation.py` 14 项通过；`python scripts/test_bottom_navigation_layout.py` 和 `scripts/check-standard.ps1` 通过。
+- debug HAP 与 `entry@ohosTest` HAP 均完成类型检查、打包和签名；在 `127.0.0.1:5555` 覆盖安装后，设备端 Hypium 结果为 `Tests run: 82, Failure: 0, Error: 0, Pass: 82, Ignore: 0`。
+- 清除模拟器测试数据后实测首次启动无第二个隐私弹窗；完成单卡三次洗牌、选牌、确认、翻牌页返回、再次确认和翻牌。声音池日志未见加载或播放失败；模拟器振动调用失败且无可感知硬件，真机听感/振感保留为目标机型人工验收项。
+
+## 2026-08-05 第二套鎏金塔罗牌资源与应用标识还原
+
+### 已完成
+
+- 从 `C:\Users\27363\Desktop\tlp\` 的 15 张源图及用户补充的宝剑六至十源图中，拆分并导入“鎏星穹庭”完整 78 张牌面与 1 张牌背。所有运行时资源为优化的 600×1000 JPEG，不打包约 50 MiB 的原始 PNG。
+- 更新 `TarotThemeMedia.ets`，使“鎏星穹庭”全部标准牌号和牌背都指向真实本地资源；抽牌、翻牌、牌库、记录和收藏继续使用原有稳定牌号与离线流程。
+- 导入器改为在临时目录中完整检查尺寸、可读性、无黑边、去重和每主题 16 MiB 资源预算后再原子替换。第二套 79 个运行时文件共 13.53 MiB。
+- 恢复 `AppScope` 和 entry 资源中的应用名称“塔罗灵感牌”，并将两份 `app_icon.png` 恢复为当前分支的原始资源；保留现有非名称文案与功能改动。
+
+### 验证
+
+- 测试先行：完整第二套映射/预算契约先因缺失映射失败；无白缝的五卡分段测试先因缺少预期画格参数失败；应用身份测试先因名称已改为“灵感卡片”失败。实现后全部通过。
+- `python scripts/test_import_tlp_decks.py`：10 项通过；`python scripts/test_import_moon_garden_deck.py`：7 项通过；应用身份与图标校验通过。
+- `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-standard.ps1`：通过；`git diff --check`：通过。
+- debug HAP 构建、资源编译和签名通过，产物 `entry-default-signed.hap` 为 35,721,414 字节；`entry@ohosTest` HAP 构建、资源编译和签名通过，产物为 36,760,861 字节。
+- 本轮没有新的设备安装或视觉观察，不更新 `design-qa.md`。应用未新增网络上传链路，且原始大 PNG 未进入运行时资源，可降低请求体过大导致 413 的风险。
+
+## 2026-08-05 第一套冷色塔罗牌资源替换
+
+### 已完成
+
+- 从 `C:\Users\27363\Desktop\塔罗牌\` 拆分并接入冷色“月影花庭”套牌：78 张牌面与 1 张牌背，统一为 600×1000 JPEG；牌面使用中等压缩质量以控制包体，同时保留牌名可辨识度。
+- 将稳定牌号映射到真实月影花庭资源，牌库显示对应的标准中英文牌名；抽牌、翻牌、解读、记录和收藏继续复用原有牌号与流程。
+- 将设置页主题名“星璃穹顶”改为“鎏星穹庭”；暖色套牌资源本轮未处理，保留到第二阶段。
+- 新增可复用的冷色素材拆分与完整性校验脚本，按原子方式写入资源，避免生成半套牌面。
+
+### 验证
+
+- `python scripts/test_import_moon_garden_deck.py`：7 项通过。
+- `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-standard.ps1`：通过。
+- `git diff --check`：通过；仅保留 Git 的既有换行符提示。
+- debug HAP 与 `entry@ohosTest` HAP：ArkTS 类型检查、资源编译、打包和签名均成功。
+- 本轮没有新的设备视觉观察，不更新 `design-qa.md`。
+
+## 2026-08-05 灵感卡片中性文案回归同步
+
+### 已完成
+
+- 将抽取位置、视角标签和关系文案的 Hypium 断言同步到当前“灵感卡片”中性术语，覆盖 `DrawService`、`SpreadService` 和 `ReadingRelationshipService`；未改变生产逻辑。
+- ohosTest 首次构建受陈旧的测试模块生成物影响，清理可再生 Hvigor 缓存后恢复正常；未修改依赖配置或业务源码。
+
+### 验证
+
+- 修复前 API 22 设备端 82 项中 4 项旧术语断言失败；修复后静态门禁通过，debug HAP 与 `entry@ohosTest` HAP 构建通过。
+- 重新安装测试 HAP 后，API 22 phone 模拟器 Hypium：`Tests run: 82, Failure: 0, Error: 0, Pass: 82, Ignore: 0`。
+- 本轮没有新的视觉、听感或触感观察，不更新 `design-qa.md`；HarmonyOS 6.1 目标机型的人工反馈验证仍由 `T-20260804-002` 追踪。
+
+## 2026-08-04 AppGallery 复测执行
+
+### 验证
+
+- 新的已签名 `entry-default-signed.hap` 已覆盖安装到 `127.0.0.1:5555`（OpenHarmony 6.0.2 / API 22）并成功启动；启动页未出现应用自行构建的隐私声明弹窗。
+- 设备上“音效”和“振动”开关均为开启状态。实际完成三次洗牌、单牌选中、首次确认进入翻牌页、左上角返回选牌页及第二次确认；返回后仍显示“已选 1/1”，第二次确认再次进入翻牌页。
+- 本轮签名 debug HAP 与 `entry@ohosTest` HAP 均完成 ArkTS 编译、资源处理、打包和签名；设备端 Hypium 结果为 `Tests run: 82, Failure: 0, Error: 0, Pass: 82, Ignore: 0`。
+- `scripts/test_appgallery_followup.py` 4 项、`scripts/test_review_remediation.py` 14 项，以及安全区、退出流、首页问候、图标和主题资源本机检查均通过。完整标准门禁仍因外部检查器路径不存在而无法运行。
+- 重新执行单牌设备路径后，`NativeReadingFeedbackPort` 的本进程警告日志中没有加载、播放或振动失败记录；音效与振动均从洗牌、选牌、确认和翻牌动作的同一事件处理回调发起。
+- 联网素材核验未新增第三方音频：爱给在当前出口返回访问限制页；Moodist 项目明确说明其音频按文件适用不同第三方许可，未取得逐文件授权映射前不将其资源直接打包。
+
+### 限制
+
+- 当前验证设备不是反馈指定的 HarmonyOS 6.1 Mate 70 Air / Pura 80 Pro+；HDC 自动化不能采集人耳听到的音效或触感强度。因此不将本轮代码调用和流程验证描述为目标机型上的实际听觉/触感验收，也不据此宣称全部上架条件已满足。
+
+## 2026-08-04 AppGallery 复测问题修复
+
+### 已完成
+
+- 新增 `ReadingFeedbackService`，使用本地 `reading_feedback.wav` 和 HarmonyOS 原生 `vibrator`，在洗牌、选牌和翻牌时按“音效”“振动”两个本地开关分别触发反馈。
+- `DrawFlowService` 新增从翻牌阶段返回选牌阶段的受控状态迁移；返回选择页会清空临时翻牌结果并保留已选牌，因此“确认选择”可再次执行。
+- 删除 `ComplianceGate`、`ComplianceService` 及其首次同意状态，不再显示应用自行构建的隐私声明弹窗；隐私政策与用户协议继续作为设置页中的可滚动正文提供。
+- 为底部导航固定图标与标签高度、居中对齐；设置项行显式垂直居中，避免不同字形和控件的基线漂移。
+- 保留本地存储故障的恢复入口，并将其从已删除的合规遮罩迁移到页面内错误提示区域。
+
+### 验证
+
+- 测试先行：新增反馈服务、翻牌返回状态机和 AppGallery 复测静态回归；修复前分别因服务/状态迁移/启动遮罩缺失而失败，修复后 `scripts/test_appgallery_followup.py` 3 项、`scripts/test_review_remediation.py` 14 项通过。
+- 既有安全区、退出流、首页问候、图标和主题资源检查均通过。
+- `entry@ohosTest` 与主应用均已完成 ArkTS 编译、资源处理、打包和签名；最新已签名 HAP 的安装与设备复测结果见本文件上方的“AppGallery 复测执行”。
+- `scripts/check-standard.ps1` 的外部标准检查器路径不存在，未能执行该一项检查。没有可用的本轮设备观察，不修改 `design-qa.md`。
+
+## 2026-08-03 损坏本地数据恢复与队列日志
+
+### 已完成
+
+- 当 Preferences 已打开但本地记录解码失败时，首次合规页会显示“清空本地数据并重新开始”入口；该入口先使用原生对话框说明记录、收藏、笔记和设置将被删除。
+- 用户确认且 `clearAll()` 成功后，页面状态重置为默认值并重新进入可同意的首次合规流程；如果 Preferences 仍不可写，保留错误提示与恢复入口供用户重试。
+- `ReadingRecordService` 在保留失败向调用方传播、并让串行队列继续工作的同时，使用脱敏 `AppLogger` 记录队列失败。
+- 未采纳“历史打开会重新解读并抛错”的误报：`openRecord()` 直接恢复已保存解读；原始 rawfile 与旧通用牌面仍被生成/兼容代码引用，未做破坏性清理。
+
+### 验证
+
+- 测试先行：恢复资源、合规回调与队列日志的静态回归在修复前失败，修复后 `scripts/test_review_remediation.py` 14 项通过。
+- HarmonyOS 标准门禁、主题资源校验、debug HAP 与 `entry@ohosTest` HAP 的 ArkTS 类型检查和构建通过。
+- 未在设备上注入损坏的 Preferences 数据，本轮不修改 `design-qa.md`。
+
+## 2026-08-03 第三轮审查遗留可修复项
+
+### 已完成
+
+- 问题输入在 300 字上限时显示明确反馈，非上限状态显示资源化字数计数；翻牌与结果页的问题引号改由字符串资源格式化。
+- 为首页、洗牌、候选、翻牌、结果、澄清牌、牌库、详情、记录和主题选择中的牌面/牌背补充无障碍描述；候选牌保留序号和选择动作信息。
+- 为两组场景选项和牌库筛选项补充显式稳定 key；旧兼容 `history: string[]` 没有可持久化唯一 ID，不用文本或索引伪造稳定 key，保留给后续数据迁移。
+- 保持 API 22 兼容基线、纯离线边界、现有深色模式策略和发布侧签名/HTTPS 政策 URL 待办不变。
+
+### 验证
+
+- 测试先行：扩展审查回归后，当前代码按预期因缺少资源和 key 失败；修复后 `scripts/test_review_remediation.py` 12 项通过。
+- 标准门禁、主题资源校验、debug HAP 和 `entry@ohosTest` HAP 的 ArkTS 类型检查与构建通过。
+- 本轮未执行新的设备观察，未修改 `design-qa.md`。
+
 ## 2026-08-03 审查问题核验与上架整改
 
 ### 已完成

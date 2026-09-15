@@ -76,7 +76,7 @@ export class ReadingRelationshipService {
         return `从${previous.drawn.position}的${previous.card.nameZhCn}${ReadingRelationshipService.orientationLabel(previous.drawn)}` +
           `“${previousKeyword}”转向${current.drawn.position}的${current.card.nameZhCn}` +
           `${ReadingRelationshipService.orientationLabel(current.drawn)}“${currentKeyword}”，` +
-          `这一正逆位变化可以作为梳理状态转折的线索。`;
+          `这一视角变化可以作为梳理状态转折的线索。`;
       }
     }
     return '';
@@ -122,8 +122,8 @@ export class ReadingRelationshipService {
       const item: ResolvedDraw = majors[index];
       names.push(`${item.drawn.position}的${item.card.nameZhCn}`);
     }
-    return `大阿卡纳集中在${names.join('、')}，` +
-      `可以把这些牌的象征作为长期主题来反思，再回到当下可调整的现实环节。`;
+      return `高层主题集中在${names.join('、')}，` +
+      `可以把这些卡片的象征作为长期主题来反思，再回到当下可调整的现实环节。`;
   }
 
   private static elementSupportText(cards: ResolvedDraw[]): string {
@@ -131,8 +131,8 @@ export class ReadingRelationshipService {
       const previous: ResolvedDraw = cards[index - 1];
       const current: ResolvedDraw = cards[index];
       if (ReadingRelationshipService.elementsSupport(previous.card.element, current.card.element)) {
-        return `${previous.drawn.position}的${previous.card.nameZhCn}（${previous.card.element}元素）` +
-          `与${current.drawn.position}的${current.card.nameZhCn}（${current.card.element}元素）相邻呼应，` +
+        return `${previous.drawn.position}的${previous.card.nameZhCn}` +
+          `与${current.drawn.position}的${current.card.nameZhCn}相邻呼应，` +
           `可以同时整理“${ReadingRelationshipService.keywordFor(previous)}”和` +
           `“${ReadingRelationshipService.keywordFor(current)}”如何互相支持。`;
       }
@@ -142,7 +142,7 @@ export class ReadingRelationshipService {
 
   private static neutralText(cards: ResolvedDraw[]): string {
     if (cards.length === 0) {
-      return '当前没有足够的牌面信息形成可靠关系，可先保留中性观察。';
+      return '当前没有足够的卡片信息形成可靠关系，可先保留中性观察。';
     }
     if (cards.length === 1) {
       const only: ResolvedDraw = cards[0];
@@ -164,23 +164,23 @@ export class ReadingRelationshipService {
   }
 
   private static orientationLabel(drawn: DrawnCard): string {
-    return drawn.orientation === 'upright' ? '正位' : '逆位';
+      return drawn.orientation === 'upright' ? '正向视角' : '侧向视角';
   }
 
   private static suitLabel(arcana: string): string {
     if (arcana === 'cups') {
-      return '圣杯花色';
+      return '主题集合 C';
     }
     if (arcana === 'wands') {
-      return '权杖花色';
+      return '主题集合 B';
     }
     if (arcana === 'swords') {
-      return '宝剑花色';
+      return '主题集合 D';
     }
     if (arcana === 'pentacles') {
-      return '星币花色';
+      return '主题集合 E';
     }
-    return `${arcana}牌组`;
+      return '主题集合';
   }
 
   private static elementsSupport(first: string, second: string): boolean {

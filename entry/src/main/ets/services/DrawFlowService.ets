@@ -52,6 +52,15 @@ export class DrawFlowService {
     return true;
   }
 
+  returnToSelection(): boolean {
+    if (this.phaseValue !== 'reveal') {
+      return false;
+    }
+    this.phaseValue = 'select';
+    this.revealed = 0;
+    return true;
+  }
+
   revealNext(): number {
     if (this.phaseValue !== 'reveal') {
       return this.revealed;

@@ -43,7 +43,7 @@ export class LocalAppStore implements AppDataRepository {
     let favoritesValue: preferences.ValueType = '';
     let notesValue: preferences.ValueType = '';
     let reversalsValue: preferences.ValueType = true;
-    let soundValue: preferences.ValueType = true;
+    let soundValue: preferences.ValueType = false;
     let hapticValue: preferences.ValueType = true;
     let recentValue: preferences.ValueType = true;
     let themeValue: preferences.ValueType = 'moon_garden';
@@ -54,7 +54,7 @@ export class LocalAppStore implements AppDataRepository {
     favoritesValue = await this.store.get('favorites', '');
     notesValue = await this.store.get('notes', '');
     reversalsValue = await this.store.get('reversals', true);
-    soundValue = await this.store.get('sound', true);
+    soundValue = await this.store.get('sound', false);
     hapticValue = await this.store.get('haptic', true);
     recentValue = await this.store.get('recentThemes', true);
     themeValue = await this.store.get('themeId', 'moon_garden');
@@ -80,7 +80,7 @@ export class LocalAppStore implements AppDataRepository {
         typeof notesValue === 'string' ? notesValue : ''
       ),
       reversalsEnabled: typeof reversalsValue === 'boolean' ? reversalsValue : true,
-      soundEnabled: typeof soundValue === 'boolean' ? soundValue : true,
+      soundEnabled: typeof soundValue === 'boolean' ? soundValue : false,
       hapticEnabled: typeof hapticValue === 'boolean' ? hapticValue : true,
       recentThemesEnabled: typeof recentValue === 'boolean' ? recentValue : true,
       themeId: themeValue === 'stained_glass' ? 'stained_glass' : 'moon_garden',

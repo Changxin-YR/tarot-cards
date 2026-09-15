@@ -2,6 +2,44 @@
 
 状态只使用 `passed`、`blocked` 或明确失败说明。
 
+## 2026-08-05 首页导航图标统一
+
+- `passed`：在 OpenHarmony 6.0.2 / API 22 phone 模拟器 `127.0.0.1:5555` 覆盖安装本轮 debug HAP 并启动首页后，观察到底部“首页、抽取、卡片库、我的”四项 SVG 图标均位于相同的 24vp 画布和 36vp 方形承载轨道内；四个标签的字号、字重、基线一致。证据为 `docs/qa/screenshots/2026-08-05-reading-feedback-nav-uniform.svg-icons.jpeg`。
+- `blocked`：该模拟器无法采集人耳实际听到的起声时间和音色，SoundPool 混音路径及新音效资源仍需在实际输出设备上完成洗牌、选牌和翻牌的听感复测。
+
+## 2026-08-05 底部导航切换残影
+
+- `passed`：在 OpenHarmony 6.0.2 / API 22 phone 模拟器 `127.0.0.1:5555` 覆盖安装本轮 debug HAP 后，使用自动化依次点击“抽取、卡片库、我的、首页”，最终首页底部导航未观察到旧图标、旧标签或旧选中底色的残留。证据为 `docs/qa/screenshots/2026-08-05-bottom-navigation-no-trail.jpeg`。
+
+## 2026-08-05 设置页隐私声明移除
+
+- `passed`：在 OpenHarmony 6.0.2 / API 22 phone 模拟器 `127.0.0.1:5555` 覆盖安装本轮 debug HAP 后打开“我的”页，开关区域之后直接显示“用户协议与免责声明”，未观察到“隐私政策”卡片。证据为 `docs/qa/screenshots/2026-08-05-settings-no-privacy-declaration.jpeg`。
+
+## 2026-08-05 点击音效冷启动预热
+
+- `passed`：在 OpenHarmony 6.0.2 / API 22 phone 模拟器 `127.0.0.1:5555` 覆盖安装本轮 debug HAP 并启动后，`NativeReadingFeedbackPort` 设备日志未出现 `warmUp` 或 `play` 失败；同版本测试 HAP 的 Hypium 结果为 `Tests run: 82, Failure: 0, Error: 0, Pass: 82, Ignore: 0`。
+- `blocked`：该模拟器不提供可量化的扬声器起声时间，无法在设备日志中替代真实听感确认；需要在实际输出设备上确认首次洗牌、选牌和翻牌的音效不再有可感知延迟。
+
+## 2026-08-05 首页快速入口基准线对齐
+
+- `passed`：在 OpenHarmony 6.0.2 / API 22 phone 模拟器 `127.0.0.1:5555` 覆盖安装本轮 debug HAP 并启动首页后，观察“单卡”“三卡布局”“卡片库”三项快速入口的图标、标题和说明分别位于同一水平轨道；三张卡片边框保持等高，未遮挡底部导航。
+
+## 2026-08-05 AppGallery 反馈复测与首页导航优化
+
+- `passed`：在 OpenHarmony 6.0.2 / API 22 phone 模拟器 `127.0.0.1:5555` 安装本轮 debug HAP 后，仅清除该模拟器中 `com.tarotinspiration.offline` 的测试数据并首次启动，直接进入首页，未观察到应用自建的第二个隐私弹窗。
+- `passed`：首页底部四项导航的图标和文字完整位于系统手势区上方；首页激活图标显示紧凑的浅色承载，未改变应用名称或应用图标。
+- `passed`：完成三次洗牌、单卡选中、首次确认、进入翻牌页、系统返回选牌页、再次确认与翻开牌面；返回后选中态和“确认选择”按钮均保持可用，第二次确认再次进入翻牌页。
+- `passed`：本轮交互后的设备日志未出现 `NativeReadingFeedbackPort` 的声音池加载或播放失败；本轮 debug/ohosTest HAP 均已重新构建，`entry@ohosTest` 在该模拟器运行结果为 `Tests run: 82, Failure: 0, Error: 0, Pass: 82, Ignore: 0`。
+- `blocked`：该 API 22 模拟器在每次反馈交互时记录 `NativeReadingFeedbackPort: vibrate failed`，虽然应用已声明 `ohos.permission.VIBRATE`，但模拟器不提供可感知的振动验收；自动化也不能判断实际音量或听感。需在反馈指定的 HarmonyOS 6.1 Mate 70 Air / Pura 80 Pro+ 上人工确认洗牌、选牌和翻牌的声音与振动感知。
+
+## 2026-08-04 AppGallery 复测设备验收
+
+- `passed`：OpenHarmony 6.0.2 / API 22 phone 模拟器覆盖安装本轮已签名 HAP 后可正常启动到首页，未观察到应用自行构建的隐私声明弹窗。
+- `passed`：设备端开启“音效”和“振动”开关后，完成三次洗牌、单牌选中、确认进入翻牌页、左上角返回选牌页、再次确认及翻开牌面；第二次确认重新进入翻牌页。反馈服务警告日志中未观察到加载、播放或振动失败。
+- `passed`：本轮签名 `ohosTest` HAP 在该设备执行 82 项 Hypium 测试，结果为 82 通过、0 失败、0 错误；反馈开关分流、音频加载就绪和翻牌返回后重新确认用例均通过。
+- `passed`：实际 UI 树中四个底部导航标签均处于同一标签轨道，设置项行中的文字和开关均保持垂直居中；未观察到本轮模拟器上的错位。
+- `blocked`：当前设备不是反馈指定的 HarmonyOS 6.1 Mate 70 Air / Pura 80 Pro+，未在目标分辨率和系统版本复核测试给出的基准线。HDC 自动化无法客观采集实际音量或触感，音效和振动的可感知性仍需在目标设备人工确认。
+
 ## 2026-08-03 API 22 首次合规确认验收
 
 - `passed`：API 22 phone 模拟器首次启动显示强制确认页；标题、说明、隐私政策/用户协议入口、同意与退出操作均完整位于系统状态栏和手势区之间，文字无截断，操作区无重叠。证据为 `docs/qa/screenshots/2026-08-03-compliance-gate.jpeg`。

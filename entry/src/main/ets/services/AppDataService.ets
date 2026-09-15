@@ -3,7 +3,6 @@ import { TarotThemeId } from '../models/TarotModels';
 import { AppDataRepository, StoredAppData } from '../repositories/AppDataRepository';
 import { StoredCardNote, StoredReadingRecord } from '../repositories/LocalDataCodec';
 import { ReadingCollections, ReadingRecordService } from './ReadingRecordService';
-import { ComplianceService } from './ComplianceService';
 import { AppLogger } from '../common/AppLogger';
 
 export class AppDataService {
@@ -77,14 +76,6 @@ export class AppDataService {
     return this.enqueue(async (): Promise<TarotThemeId> => {
       await this.repository.saveTheme(themeId);
       return themeId;
-    });
-  }
-
-  async acceptCurrentTerms(): Promise<string> {
-    return this.enqueue(async (): Promise<string> => {
-      const version: string = ComplianceService.CURRENT_VERSION;
-      await this.repository.saveAcceptedTermsVersion(version);
-      return version;
     });
   }
 

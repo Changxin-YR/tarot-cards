@@ -164,30 +164,5 @@ export default function appDataServiceTest(): void {
       expect(repository.operations[1]).assertEqual('clear-all');
     });
 
-    it('returnsCurrentTermsVersionOnlyAfterPersistenceSucceeds', 0, async () => {
-      const repository: MemoryAppDataRepository = new MemoryAppDataRepository();
-      const service: AppDataService = new AppDataService(repository);
-
-      const version: string = await service.acceptCurrentTerms();
-
-      expect(version).assertEqual('2026-08-03-v1');
-      expect(repository.savedAcceptedTermsVersion).assertEqual(version);
-    });
-
-    it('rejectsTermsAcceptanceWhenPersistenceFails', 0, async () => {
-      const repository: MemoryAppDataRepository = new MemoryAppDataRepository();
-      repository.shouldFail = true;
-      const service: AppDataService = new AppDataService(repository);
-      let rejected: boolean = false;
-
-      try {
-        await service.acceptCurrentTerms();
-      } catch {
-        rejected = true;
-      }
-
-      expect(rejected).assertTrue();
-      expect(repository.savedAcceptedTermsVersion).assertEqual('');
-    });
   });
 }

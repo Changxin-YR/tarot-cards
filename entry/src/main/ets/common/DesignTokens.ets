@@ -3,6 +3,13 @@ export class DesignTokens {
   static readonly PAGE_PADDING: number = 16;
   static readonly HEADER_HEIGHT: number = 56;
   static readonly NAV_HEIGHT: number = 64;
+  static readonly NAV_ICON_HEIGHT: number = 36;
+  static readonly NAV_ICON_SIZE: number = 24;
+  static readonly NAV_LABEL_HEIGHT: number = 16;
+  static readonly NAV_LABEL_FONT_SIZE: number = 11;
+  static readonly QUICK_ENTRY_ICON_HEIGHT: number = 32;
+  static readonly QUICK_ENTRY_TITLE_HEIGHT: number = 20;
+  static readonly QUICK_ENTRY_SUBTITLE_HEIGHT: number = 24;
   static readonly SAFE_TOP_FALLBACK: number = 48;
   static readonly SAFE_BOTTOM_FALLBACK: number = 24;
   static readonly TOUCH_TARGET: number = 48;

@@ -47,5 +47,18 @@ export default function drawFlowServiceTest(): void {
       expect(flow.allRevealed()).assertTrue();
       expect(flow.revealNext()).assertEqual(2);
     });
+
+    it('allowsConfirmationAfterReturningFromReveal', 0, () => {
+      const flow: DrawFlowService = new DrawFlowService(1);
+      flow.shuffle();
+      flow.shuffle();
+      flow.shuffle();
+      flow.toggle('major-00');
+      expect(flow.confirm()).assertTrue();
+
+      expect(flow.returnToSelection()).assertTrue();
+      expect(flow.phase()).assertEqual('select');
+      expect(flow.confirm()).assertTrue();
+    });
   });
 }

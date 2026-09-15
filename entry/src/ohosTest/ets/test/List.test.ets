@@ -10,8 +10,8 @@ import readingRecordServiceTest from './ReadingRecordService.test';
 import greetingServiceTest from './GreetingService.test';
 import navigationServiceTest from './NavigationService.test';
 import drawFlowServiceTest from './DrawFlowService.test';
+import readingFeedbackServiceTest from './ReadingFeedbackService.test';
 import readingRelationshipServiceTest from './ReadingRelationshipService.test';
-import complianceServiceTest from './ComplianceService.test';
 import responsiveLayoutTest from './ResponsiveLayout.test';
 
 export default function testsuite(): void {
@@ -27,7 +27,7 @@ export default function testsuite(): void {
   greetingServiceTest();
   navigationServiceTest();
   drawFlowServiceTest();
+  readingFeedbackServiceTest();
   readingRelationshipServiceTest();
-  complianceServiceTest();
   responsiveLayoutTest();
 }

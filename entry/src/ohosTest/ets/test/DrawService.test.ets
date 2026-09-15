@@ -26,9 +26,9 @@ export default function drawServiceTest(): void {
 
       expect(result.length).assertEqual(3);
       expect(new Set<string>(result.map((item: DrawnCard): string => item.cardId)).size).assertEqual(3);
-      expect(result[0].position).assertEqual('过去');
-      expect(result[1].position).assertEqual('现在');
-      expect(result[2].position).assertEqual('未来趋势');
+      expect(result[0].position).assertEqual('已发生');
+      expect(result[1].position).assertEqual('正在发生');
+      expect(result[2].position).assertEqual('下一步行动');
     });
 
     it('keepsDailyDrawStableForSameDate', 0, () => {

@@ -7,7 +7,7 @@ export class DrawService {
     random: () => number = Math.random
   ): DrawnCard {
     if (cardIds.length === 0) {
-      throw new Error('牌库不能为空');
+      throw new Error('卡片库不能为空');
     }
     const index: number = Math.min(
       cardIds.length - 1,
@@ -27,9 +27,9 @@ export class DrawService {
     random: () => number = Math.random
   ): DrawnCard[] {
     if (cardIds.length < 3) {
-      throw new Error('三牌阵至少需要三张牌');
+      throw new Error('三卡布局至少需要三张卡');
     }
-    return DrawService.drawSpread(cardIds, ['过去', '现在', '未来趋势'], reversalsEnabled, random);
+    return DrawService.drawSpread(cardIds, ['已发生', '正在发生', '下一步行动'], reversalsEnabled, random);
   }
 
   static drawSpread(
@@ -42,7 +42,7 @@ export class DrawService {
       return [];
     }
     if (cardIds.length < positions.length) {
-      throw new Error('牌库数量少于牌阵所需数量');
+      throw new Error('卡片库数量少于布局所需数量');
     }
     const available: string[] = cardIds.slice();
     const result: DrawnCard[] = [];
@@ -86,7 +86,7 @@ export class DrawService {
     reversalsEnabled: boolean
   ): DrawnCard {
     if (cardIds.length === 0) {
-      throw new Error('牌库不能为空');
+      throw new Error('卡片库不能为空');
     }
     const hash: number = DrawService.hash(localDateKey);
     const index: number = hash % cardIds.length;

@@ -5,13 +5,16 @@ from pathlib import Path
 from PIL import Image
 
 from import_tlp_decks import (
+    MAX_THEME_BYTES,
     OUTPUT_SIZE,
     SOURCE_GROUPS,
+    STAINED_GLASS_SOURCE_GROUPS,
     expected_card_ids,
     fit_cover,
     normalize_existing_decks,
     perceptual_hash,
     split_horizontal_cards,
+    theme_media_bytes,
     trim_uniform_border,
     validate_output_decks,
 )
@@ -56,12 +59,41 @@ class TlpDeckImportTest(unittest.TestCase):
         self.assertEqual(5, len(cards))
         self.assertTrue(all(card.height >= 158 for card in cards))
 
+    def test_expected_count_splits_adjacent_cards_without_white_gap(self) -> None:
+        source = Image.new("RGB", (500, 180), "white")
+        for index in range(5):
+            card = Image.new("RGB", (100, 180), (40 + index * 30, 30, 70))
+            source.paste(card, (index * 100, 0))
+
+        cards = split_horizontal_cards(source, expected_count=5)
+
+        self.assertEqual(5, len(cards))
+        self.assertTrue(all(card.size == (100, 180) for card in cards))
+
     def test_source_groups_map_fifty_unique_cards_per_theme(self) -> None:
         for theme_id in ("moon_garden", "stained_glass"):
             mapped = [card_id for group in SOURCE_GROUPS[theme_id] for card_id in group[1]]
             self.assertEqual(50, len(mapped))
             self.assertEqual(50, len(set(mapped)))
             self.assertEqual(expected_card_ids()[:50], mapped)
+
+    def test_stained_glass_source_groups_cover_all_faces_and_one_card_back(self) -> None:
+        mapped = [card_id for _, card_ids in STAINED_GLASS_SOURCE_GROUPS for card_id in card_ids]
+
+        self.assertEqual(79, len(mapped))
+        self.assertEqual(set(expected_card_ids()), set(mapped) - {"card_back"})
+        self.assertEqual(1, mapped.count("card_back"))
+
+    def test_project_stained_glass_theme_stays_within_transport_budget(self) -> None:
+        self.assertLessEqual(MAX_THEME_BYTES, 16 * 1024 * 1024)
+        self.assertLessEqual(theme_media_bytes(MEDIA_ROOT, "stained_glass"), MAX_THEME_BYTES)
+
+    def test_stained_glass_runtime_mapping_contains_every_resource(self) -> None:
+        mapping = (PROJECT_ROOT / "entry/src/main/ets/common/TarotThemeMedia.ets").read_text(encoding="utf-8")
+        for card_id in expected_card_ids():
+            resource_name = f"app.media.stained_glass_{card_id.replace('-', '_')}"
+            self.assertIn(resource_name, mapping)
+        self.assertIn("app.media.stained_glass_card_back", mapping)
 
     def test_normalization_is_atomic_and_keeps_unique_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as value:
